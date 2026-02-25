@@ -1,50 +1,51 @@
-# 🤖 Jio RAG Support Agent
+# Jio RAG Support Agent
 
-An AI-powered customer support chatbot for Jio services that runs **entirely on your local machine** — no paid APIs required. It uses a Retrieval-Augmented Generation (RAG) pipeline to search a Jio knowledge base and generate accurate, context-grounded answers.
+An AI-powered customer support chatbot for Jio services that runs entirely on your local machine — no paid APIs required. It uses a Retrieval-Augmented Generation (RAG) pipeline to search a Jio knowledge base and generate accurate, context-grounded answers.
 
 > **What is RAG?** Instead of relying on the AI's training data alone, RAG first searches a knowledge base for relevant documents, then uses those documents as context to generate an answer. This makes responses more accurate and grounded in real information.
 
 ---
 
-## ✨ Features
+## Features
 
-- 🔍 Searches a local Jio knowledge base (PDFs, FAQs, user guides)
-- 🔄 Automatically rewrites vague queries for better search results
-- ✅ Grades retrieved documents for relevance before answering
-- 🛡️ Validates and filters harmful or gibberish input
-- 📊 LangSmith tracing support for debugging and monitoring
-- 🚀 Production-ready FastAPI backend with logging and error handling
-- 💬 Streamlit chat frontend *(coming soon)*
+- Searches a local Jio knowledge base (PDFs, FAQs, user guides)
+- Automatically rewrites vague queries for better search results
+- Grades retrieved documents for relevance before answering
+- Validates and filters harmful or gibberish input
+- LangSmith tracing support for debugging and monitoring
+- Production-ready FastAPI backend with logging and error handling
 
 ---
 
-## 🏗️ How It Works
+## How It Works
 
 When a user sends a question, it goes through the following pipeline:
 
-```
+```text
 User sends a question
-        ↓
+        |
 1. Validate Input          — block harmful or gibberish queries
-        ↓
+        |
 2. Detect Intent           — classify as troubleshooting / billing / informational
-        ↓
+        |
 3. Retrieve Documents      — search ChromaDB vector store
-        ↓
+        |
 4. Grade Documents         — are the results relevant?
-        ↓ Yes                       ↓ No (max 2 retries)
-5. Generate Answer         Rewrite & Search Again
-        ↓
-6. Format Answer           — add sources footer
-        ↓
-7. Hallucination Check     — verify answer length vs context
-        ↓
+        |                               |
+       Yes                    No (max 2 retries)
+        |                               |
+5. Generate Answer          Rewrite and Search Again
+        |
+6. Format Answer            — add sources footer
+        |
+7. Hallucination Check      — verify answer length vs context
+        |
    Final Response
 ```
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 | Tool | Purpose |
 |------|---------|
@@ -52,16 +53,16 @@ User sends a question
 | [LangChain](https://python.langchain.com) | LLM chains and tooling |
 | [ChromaDB](https://www.trychroma.com) | Local vector database |
 | [Ollama](https://ollama.com) | Run LLMs locally |
-| [llama3.1](https://ollama.com/library/llama3.1) | Local LLM for generation |
+| [llama3.1](https://ollama.com/library/llama3.1) | Local LLM for answer generation |
 | [nomic-embed-text](https://ollama.com/library/nomic-embed-text) | Local embedding model |
 | [FastAPI](https://fastapi.tiangolo.com) | REST API backend |
 | [LangSmith](https://smith.langchain.com) | Tracing and monitoring |
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
-```
+```text
 RaG_App/
 ├── backend/
 │   ├── main.py          # FastAPI app — API endpoints and request handling
@@ -72,7 +73,7 @@ RaG_App/
 │   ├── database.py      # Database setup — loads ChromaDB on startup
 │   └── config.py        # Configuration — all settings in one place
 ├── rag.ipynb            # Jupyter notebook — data ingestion and indexing
-├── .env                 # Your API keys (never committed to git)
+├── .env                 # API keys (never committed to git)
 ├── .gitignore
 ├── requirements.txt
 └── README.md
@@ -80,7 +81,7 @@ RaG_App/
 
 ---
 
-## ⚙️ Prerequisites
+## Prerequisites
 
 Before you start, make sure you have the following installed:
 
@@ -91,63 +92,74 @@ Before you start, make sure you have the following installed:
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Step 1 — Clone the repository
+
 ```bash
 git clone https://github.com/DenisAnthony871/RaG_App.git
 cd RaG_App
 ```
 
 ### Step 2 — Create a virtual environment
+
 ```bash
 uv venv
+
 # Windows
 .venv\Scripts\activate
+
 # Mac/Linux
 source .venv/bin/activate
 ```
 
 ### Step 3 — Install dependencies
+
 ```bash
 uv pip install -r requirements.txt
 ```
 
 ### Step 4 — Pull the required Ollama models
+
 Make sure Ollama is running, then pull the models:
+
 ```bash
 ollama pull llama3.1
 ollama pull nomic-embed-text
 ```
 
 ### Step 5 — Set up environment variables
+
 Create a `.env` file in the root folder:
-```
+
+```text
 LANGCHAIN_TRACING_V2=true
 LANGCHAIN_API_KEY=your_langsmith_key_here
 LANGCHAIN_PROJECT=Jio_RAG_Project
 ```
-> You can get a free LangSmith API key at [smith.langchain.com](https://smith.langchain.com). Tracing is optional but useful for debugging.
+
+You can get a free LangSmith API key at [smith.langchain.com](https://smith.langchain.com). Tracing is optional but recommended for debugging.
 
 ### Step 6 — Build the knowledge base
+
 Open `rag.ipynb` in Jupyter and run the indexing cells. This loads your Jio documents (PDFs, JSONs) into ChromaDB. The vector store will be saved locally to `./chroma_db_v4`.
 
-> ⚠️ This step is required before running the API. The ChromaDB folder is not included in the repo due to its large size.
+**Note:** This step is required before running the API. The ChromaDB folder is not included in the repo due to its large file size.
 
 ### Step 7 — Start the API
+
 ```bash
 cd backend
 uvicorn main:app --host 127.0.0.1 --port 8080
 ```
 
-You should see:
-```
-INFO: Uvicorn running on http://127.0.0.1:8080
-```
+The API will be available at `http://127.0.0.1:8080`
+
+Interactive API docs are available at `http://127.0.0.1:8080/docs`
 
 ---
 
-## 🔌 API Endpoints
+## API Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -155,10 +167,8 @@ INFO: Uvicorn running on http://127.0.0.1:8080
 | GET | `/stats` | Show vector count in ChromaDB |
 | POST | `/chat` | Send a question, get an answer |
 
-### Interactive API Docs
-Visit `http://127.0.0.1:8080/docs` in your browser to test all endpoints with a built-in UI.
-
 ### Example Request
+
 ```bash
 curl -X POST http://127.0.0.1:8080/chat \
   -H "Content-Type: application/json" \
@@ -166,6 +176,7 @@ curl -X POST http://127.0.0.1:8080/chat \
 ```
 
 ### Example Response
+
 ```json
 {
   "request_id": "a1b2c3d4",
@@ -177,9 +188,9 @@ curl -X POST http://127.0.0.1:8080/chat \
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
-All settings are in `backend/config.py`. You can tweak these without touching the core logic:
+All settings are in `backend/config.py`. You can adjust these without modifying the core logic:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -187,12 +198,12 @@ All settings are in `backend/config.py`. You can tweak these without touching th
 | `LLM_MODEL` | `llama3.1` | Ollama model used for answers |
 | `EMBEDDING_MODEL` | `nomic-embed-text` | Ollama model used for search |
 | `MAX_REWRITES` | `2` | How many times to retry a bad search |
-| `RETRIEVER_K` | `3` | How many documents to retrieve per search |
+| `RETRIEVER_K` | `3` | Number of documents to retrieve per search |
 | `KEYWORD_THRESHOLD` | `2` | Minimum keyword matches to consider docs relevant |
 
 ---
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 **Ollama not found / connection refused**
 Make sure Ollama is running before starting the API. Open a separate terminal and run `ollama serve`.
@@ -201,15 +212,16 @@ Make sure Ollama is running before starting the API. Open a separate terminal an
 You need to run the indexing notebook first (`rag.ipynb`) to create the vector store.
 
 **Port already in use**
-Change the port in `main.py` or kill the process using port 8080.
+Change the port in `main.py` or kill the existing process using port 8080.
 
 **Slow responses**
-This is normal — `llama3.1` running locally on CPU can take 10-60 seconds per response depending on your hardware. A GPU will significantly speed this up.
+This is expected when running `llama3.1` locally on CPU — responses can take 10 to 60 seconds depending on your hardware. A GPU will significantly improve speed.
 
 ---
 
-## 📝 Notes
+## Notes
 
-- The ChromaDB folders (`chroma_db_v4`, etc.) are excluded from the repo — rebuild them locally using the notebook
-- Always keep `workers=1` in uvicorn since Ollama handles one request at a time
-- The `.env` file is excluded from git — never commit your API keys
+- ChromaDB folders (`chroma_db_v4`, etc.) are excluded from the repo — rebuild them locally using the indexing notebook
+- Ollama must be running before starting the API
+- Keep `workers=1` in uvicorn since Ollama processes one request at a time
+- The `.env` file is excluded from git — never commit API keys to the repository
