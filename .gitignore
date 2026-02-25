@@ -13,3 +13,4 @@ jio_faq_data.json
 final_merged_chunks.json
 Documents/
 JioChatbotDataset_Text/
+*.pdf
