@@ -2,6 +2,8 @@
 __pycache__/
 *.pyc
 *.pyo
+*.bin
+*.sqlite3
 chroma_db_v4/
 chroma_db_parent/
 chroma_langchain_db/
