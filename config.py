@@ -1,5 +1,28 @@
 # ============= CONFIGURATION =============
 
+CUSTOM_CORRECTIONS = {
+    "mobel": "mobile",
+    "moble": "mobile",
+    "moblie": "mobile",
+    "ntwork": "network",
+    "ntwrk": "network",
+    "netwrk": "network",
+    "recharg": "recharge",
+    "rechareg": "recharge",
+    "rechrge": "recharge",
+    "simcard": "sim card",
+    "jiofiber": "jio fiber",
+    "jiofibr": "jio fiber",
+    "conection": "connection",
+    "connction": "connection",
+    "interneet": "internet",
+    "intrnet": "internet",
+    "balence": "balance",
+    "ballance": "balance",
+    "validty": "validity",
+    "validy": "validity",
+}
+
 DB_PATH = "./chroma_db_v4"
 COLLECTION_NAME = "jio_knowledge_base"
 EMBEDDING_MODEL = "nomic-embed-text"

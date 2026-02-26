@@ -3,25 +3,62 @@ import logging
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_ollama import ChatOllama
 from langgraph.graph import MessagesState
-from config import HARMFUL_KEYWORDS, JIO_KEYWORDS, KEYWORD_THRESHOLD, MAX_REWRITES, LLM_MODEL
+from config import HARMFUL_KEYWORDS, JIO_KEYWORDS, KEYWORD_THRESHOLD, MAX_REWRITES, LLM_MODEL, CUSTOM_CORRECTIONS
 from chains import rewrite_chain
 
 logger = logging.getLogger(__name__)
 
+from spellchecker import SpellChecker
+
+spell = SpellChecker()
+
+def correct_spelling(text: str) -> str:
+    words = text.split()
+    corrected = []
+    for word in words:
+        word_lower = word.lower()
+        # Check custom dictionary first
+        if word_lower in CUSTOM_CORRECTIONS:
+            corrected.append(CUSTOM_CORRECTIONS[word_lower])
+        else:
+            # Fall back to pyspellchecker
+            correction = spell.correction(word)
+            corrected.append(correction if correction else word)
+    return " ".join(corrected)
 
 # ============= NODE 1: VALIDATE INPUT =============
 def validate_input(state: MessagesState):
     messages = state["messages"]
     user_msg = messages[-1].content if messages else ""
+    cleaned = user_msg.strip()
 
-    if len(user_msg.strip()) < 3:
+    if len(cleaned) < 3:
         return {"messages": [AIMessage(content="Please ask a more specific question about Jio services.")]}
 
-    if any(keyword in user_msg.lower() for keyword in HARMFUL_KEYWORDS):
+    if any(keyword in cleaned.lower() for keyword in HARMFUL_KEYWORDS):
         return {"messages": [AIMessage(content="I can't help with that. Please ask about Jio services instead.")]}
 
-    return {"messages": messages}
+    # Auto correct spelling before passing forward
+    corrected = correct_spelling(cleaned)
+    if corrected != cleaned:
+        logger.info(f"Spell corrected: '{cleaned}' -> '{corrected}'")
 
+    # Replace message with corrected version
+    from langchain_core.messages import HumanMessage
+    corrected_messages = [HumanMessage(content=corrected)]
+    return {"messages": corrected_messages}
+
+def is_fallback(state: MessagesState) -> str:
+    """Check if rewrite_question returned a fallback message or a real rewrite"""
+    last_msg = state["messages"][-1]
+    
+    # If last message is AIMessage it means max rewrites was hit
+    if last_msg.type == "ai":
+        logger.info("Fallback reached — exiting graph")
+        return "end"
+    
+    # If last message is HumanMessage it's a real rewrite — continue
+    return "continue"
 
 # ============= NODE 2: ENRICH CONTEXT =============
 def enrich_context(state: MessagesState):
