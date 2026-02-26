@@ -12,9 +12,9 @@ from nodes import (
     generate_answer,
     format_answer,
     hallucination_router,
+    is_fallback,  # new router
 )
 
-# ============= BUILD GRAPH =============
 workflow = StateGraph(MessagesState)
 
 workflow.add_node("validate_input", validate_input)
@@ -55,6 +55,14 @@ workflow.add_conditional_edges(
     },
 )
 
-workflow.add_edge("rewrite_question", "generate_query_or_respond")
+# Key fix — rewrite can now exit to END if fallback was returned
+workflow.add_conditional_edges(
+    "rewrite_question",
+    is_fallback,
+    {
+        "end": END,
+        "continue": "generate_query_or_respond",
+    },
+)
 
 graph = workflow.compile()
