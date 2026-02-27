@@ -3,27 +3,26 @@ import logging
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_ollama import ChatOllama
 from langgraph.graph import MessagesState
+from autocorrect import Speller
 from config import HARMFUL_KEYWORDS, JIO_KEYWORDS, KEYWORD_THRESHOLD, MAX_REWRITES, LLM_MODEL, CUSTOM_CORRECTIONS
 from chains import rewrite_chain
 
 logger = logging.getLogger(__name__)
 
-from spellchecker import SpellChecker
 
-spell = SpellChecker()
+spell = Speller(lang='en')
 
 def correct_spelling(text: str) -> str:
     words = text.split()
     corrected = []
     for word in words:
         word_lower = word.lower()
-        # Check custom dictionary first
+        # Custom dictionary first — handles Jio-specific terms
         if word_lower in CUSTOM_CORRECTIONS:
             corrected.append(CUSTOM_CORRECTIONS[word_lower])
         else:
-            # Fall back to pyspellchecker
-            correction = spell.correction(word)
-            corrected.append(correction if correction else word)
+            # Autocorrect handles general English typos
+            corrected.append(spell(word))
     return " ".join(corrected)
 
 # ============= NODE 1: VALIDATE INPUT =============
