@@ -204,9 +204,25 @@ def hallucination_router(state: MessagesState) -> str:
     if not context or "No results found" in context:
         return "end"
 
-    if len(answer) > len(context) * 2.5:
-        logger.warning("Answer may contain hallucinations, rewriting...")
+    # Use LLM to check if answer is grounded in context
+    validation_prompt = f"""You are a strict answer validator.
+
+Context: {context[:1000]}
+
+Answer: {answer[:500]}
+
+Is the answer grounded in the context provided? 
+Reply with only 'yes' or 'no'."""
+
+    clean_llm = ChatOllama(model=LLM_MODEL, temperature=0)
+    response = clean_llm.invoke(validation_prompt)
+    result = response.content.strip().lower()
+
+    logger.info(f"Hallucination check result: {result}")
+
+    if "no" in result:
+        logger.warning("Answer not grounded in context, rewriting...")
         return "rewrite_question"
 
-    logger.info("Answer looks legitimate")
+    logger.info("Answer validated successfully")
     return "end"
