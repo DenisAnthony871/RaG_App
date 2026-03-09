@@ -17,10 +17,25 @@ def check_ollama_health(timeout=5):
     """
     try:
         response = requests.get("http://localhost:11434/api/tags", timeout=timeout)
-        if response.status_code == 200:
-            logger.info("✓ Ollama is running and accessible")
-            return True
-    except (requests.ConnectionError, requests.Timeout) as e:
+        
+        # Check if response status is successful
+        if response.status_code != 200:
+            logger.error(
+                f"✗ CRITICAL: Ollama returned non-200 status code"
+                f"\nStatus Code: {response.status_code}"
+                f"\nResponse: {response.text}"
+                f"\n\nOllama is required to run this application."
+                f"\n\nHow to fix:"
+                f"\n1. Verify Ollama is running: ollama serve"
+                f"\n2. Check Ollama is available at http://localhost:11434"
+                f"\n3. Then restart this application"
+            )
+            sys.exit(1)
+        
+        logger.info("✓ Ollama is running and accessible")
+        return True
+        
+    except requests.RequestException as e:
         logger.error(
             f"✗ CRITICAL: Cannot connect to Ollama at http://localhost:11434"
             f"\n\nOllama is required to run this application."
