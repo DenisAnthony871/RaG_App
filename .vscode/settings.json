@@ -8,5 +8,8 @@
     ],
     "python.testing.pytestEnabled": false,
     "python.testing.unittestEnabled": true,
-    "claudeCodeChat.permissions.yoloMode": false
+    "python.terminal.useEnvFile": true,
+    "claudeCodeChat.permissions.yoloMode": false,
+    "redhat.telemetry.enabled": true,
+    "rhda.excludeFolders": [".venv", "node_modules", "__pycache__", ".pytest_cache", "*.egg-info", "dist", "build", "chroma_db_*"]
 }
