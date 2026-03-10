@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
 from langchain_core.messages import HumanMessage
 from rag_graph import graph
-from database import vectorstore
+from database import vectorstore, check_ollama_health
 from config import DB_PATH, COLLECTION_NAME
 import uvicorn
 
@@ -33,6 +33,14 @@ app.add_middleware(
     allow_methods=["POST", "GET"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Check Ollama availability on startup"""
+    logger.info("Checking Ollama availability...")
+    check_ollama_health()
+    logger.info("API startup complete")
 
 
 @app.exception_handler(Exception)
@@ -67,7 +75,8 @@ def health():
 @app.get("/stats")
 def stats():
     try:
-        count = len(vectorstore.get().get("ids", []))
+        result = vectorstore.get()
+        count = len(result.get("ids", []) if result else [])
         return {"total_vectors": count, "collection": COLLECTION_NAME, "db_path": DB_PATH}
     except Exception as e:
         logger.error(f"Stats error: {e}")

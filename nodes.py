@@ -42,10 +42,10 @@ def validate_input(state: MessagesState):
     if corrected != cleaned:
         logger.info(f"Spell corrected: '{cleaned}' -> '{corrected}'")
 
-    # Replace message with corrected version
+    # Replace last message with corrected version (preserve history)
     from langchain_core.messages import HumanMessage
-    corrected_messages = [HumanMessage(content=corrected)]
-    return {"messages": corrected_messages}
+    messages[-1] = HumanMessage(content=corrected)
+    return {"messages": messages}
 
 def is_fallback(state: MessagesState) -> str:
     """Check if rewrite_question returned a fallback message or a real rewrite"""
@@ -119,7 +119,8 @@ def rewrite_question(state: MessagesState):
     logger.info(f"Rewrite #{rewrite_count} | Original: {question[:80]}")
     logger.info(f"Rewritten: {better_question}")
 
-    return {"messages": [HumanMessage(content=better_question)]}
+    messages.append(HumanMessage(content=better_question))
+    return {"messages": messages}
 
 
 # ============= GRADE DOCUMENTS (ROUTER) =============
@@ -171,8 +172,16 @@ ANSWER (plain English only):"""
     response = clean_llm.invoke(plain_prompt)
     answer = response.content
 
-    if answer.strip().startswith("{"):
-        answer = "I don't have enough information to answer that question."
+    # Check if LLM returned JSON (shouldn't happen with plain text prompt)
+    import json
+    if answer.strip():
+        try:
+            json.loads(answer)
+            # If that succeeded, it's JSON - reject it
+            answer = "I don't have enough information to answer that question."
+        except (json.JSONDecodeError, ValueError):
+            # Not JSON, safe to use answer
+            pass
 
     logger.info(f"Generated answer: {answer[:100]}...")
     return {"messages": [AIMessage(content=answer)]}

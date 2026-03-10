@@ -8,6 +8,7 @@ chroma_db_v4/
 chroma_db_parent/
 chroma_langchain_db/
 .env
+.env.local
 *.ipynb_checkpoints
 *.ipynb
 final_knowledge_base.json
@@ -22,8 +23,15 @@ PROJECT_STATUS.md
 dist/
 build/
 .DS_Store
+Thumbs.db
 *.log
+*.bak
+*.swp
 .vscode/settings.json
+.idea/
+.mypy_cache/
+.coverage
+htmlcov/
 .rhdarc.json
 TESTING_ENDPOINTS.md
 REMAINING_WORK.md

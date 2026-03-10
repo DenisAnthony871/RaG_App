@@ -130,15 +130,31 @@ ollama pull nomic-embed-text
 
 ### Step 5 — Set up environment variables
 
-Create a `.env` file in the root folder:
+Copy `.env.example` to `.env` and fill in your API keys:
 
-```text
+```bash
+# Windows
+copy .env.example .env
+
+# Mac/Linux
+cp .env.example .env
+```
+
+Edit `.env` and add your keys:
+
+```bash
+gemi_api=YOUR_GOOGLE_GEMINI_API_KEY_HERE
+lang_gold=YOUR_LANGCHAIN_API_KEY_HERE
 LANGCHAIN_TRACING_V2=true
-LANGCHAIN_API_KEY=your_langsmith_key_here
+LANGCHAIN_API_KEY=YOUR_LANGSMITH_TRACING_KEY_HERE
 LANGCHAIN_PROJECT=Jio_RAG_Project
 ```
 
-You can get a free LangSmith API key at [smith.langchain.com](https://smith.langchain.com). Tracing is optional but recommended for debugging.
+**API Key Sources:**
+- **Google Gemini API:** Get at [console.cloud.google.com](https://console.cloud.google.com)
+- **LangChain/LangSmith:** Get at [smith.langchain.com](https://smith.langchain.com) (free tier available)
+
+> **Note:** Never commit `.env` to git. It's already in `.gitignore`.
 
 ### Step 6 — Build the knowledge base
 
