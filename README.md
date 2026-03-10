@@ -140,21 +140,18 @@ copy .env.example .env
 cp .env.example .env
 ```
 
-Edit `.env` and add your keys:
+Edit `.env` and add your LangSmith API key:
 
 ```bash
-gemi_api=YOUR_GOOGLE_GEMINI_API_KEY_HERE
-lang_gold=YOUR_LANGCHAIN_API_KEY_HERE
+LANGCHAIN_API_KEY=YOUR_LANGSMITH_API_KEY_HERE
 LANGCHAIN_TRACING_V2=true
-LANGCHAIN_API_KEY=YOUR_LANGSMITH_TRACING_KEY_HERE
 LANGCHAIN_PROJECT=Jio_RAG_Project
 ```
 
-**API Key Sources:**
-- **Google Gemini API:** Get at [console.cloud.google.com](https://console.cloud.google.com)
-- **LangChain/LangSmith:** Get at [smith.langchain.com](https://smith.langchain.com) (free tier available)
-
-> **Note:** Never commit `.env` to git. It's already in `.gitignore`.
+**API Key Source:**
+- **LangSmith API:** Get a free key at [smith.langchain.com](https://smith.langchain.com)
+  - LangSmith is optional but recommended for debugging and monitoring the RAG pipeline
+  - If you skip this, set `LANGCHAIN_TRACING_V2=false` to disable tracing
 
 ### Step 6 — Build the knowledge base
 
