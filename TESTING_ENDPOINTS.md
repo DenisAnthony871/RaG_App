@@ -19,6 +19,7 @@ curl http://127.0.0.1:8000/health
 ```
 
 **Expected Response:**
+
 ```json
 {"status": "healthy"}
 ```
@@ -34,6 +35,7 @@ curl http://127.0.0.1:8000/stats
 ```
 
 **Expected Response:**
+
 ```json
 {
   "total_vectors": 42,
@@ -55,6 +57,7 @@ curl -X POST http://127.0.0.1:8000/chat \
 ```
 
 **Expected Response:**
+
 ```json
 {
   "request_id": "a1b2c3d4",
