@@ -36,3 +36,4 @@ htmlcov/
 .rhdarc.json
 node_modules/
 .ruff_cache/
+*.ipynb
