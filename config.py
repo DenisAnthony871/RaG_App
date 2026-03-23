@@ -5,6 +5,10 @@ CUSTOM_CORRECTIONS = {
     "moblie": "mobile",
     "mobiie": "mobile",
     "mobil": "mobile",
+    
+    "jio": "Jio",
+    "jiofiber": "Jio Fiber",
+    "jiofibr": "Jio Fiber",
 
     # Network
     "ntwork": "network",
@@ -63,6 +67,10 @@ CUSTOM_CORRECTIONS = {
     "paymet": "payment",
     "paymnt": "payment",
     "paiment": "payment",
+    
+    "fone": "phone",
+    "fon": "phone", 
+    "nt": "not",
 
     # Activate
     "activte": "activate",
@@ -82,7 +90,7 @@ CUSTOM_CORRECTIONS = {
 DB_PATH = "./chroma_db_v4"
 COLLECTION_NAME = "jio_knowledge_base"
 EMBEDDING_MODEL = "nomic-embed-text"
-LLM_MODEL = "llama3.1"
+LLM_MODEL = "llama3.2:3b"
 
 HARMFUL_KEYWORDS = ["hack", "malware", "virus"]
 JIO_KEYWORDS = [
