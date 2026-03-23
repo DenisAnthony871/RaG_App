@@ -6,7 +6,10 @@ from database import retriever
 def retriever_tool(query: str) -> str:
     """Search knowledge base for Jio information"""
     docs = retriever.invoke(query)
-    return "\n".join([doc.page_content for doc in docs]) if docs else "No results found"
+    if not docs:
+        return "No results found"
+    docs_limited = docs[:5]
+    return "\n".join([f"[{i+1}] {doc.page_content}" for i, doc in enumerate(docs_limited)])
 
 
 tools = [retriever_tool]
