@@ -226,7 +226,7 @@ Reply with only 'yes' or 'no'."""
     clean_llm = ChatOllama(model=LLM_MODEL, temperature=0)
     response = clean_llm.invoke(validation_prompt)
     result = response.content.strip().lower()
-
+    
     logger.info(f"Hallucination check result: {result}")
 
     if "no" in result:

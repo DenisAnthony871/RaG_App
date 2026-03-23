@@ -3,7 +3,7 @@ import os
 # --- HARDCODE CONFIGURATION (For Debugging Only) ---
 # Paste your key inside the quotes below. Do not use the .env file for this test.
 os.environ["LANGCHAIN_TRACING_V2"] = "true"
-os.environ["LANGCHAIN_API_KEY"] = "lsv2_pt_..." # <--- REPLACE THIS WITH YOUR KEY
+os.environ["LANGCHAIN_API_KEY"] = "" # <--- REPLACE THIS WITH YOUR KEY
 os.environ["LANGCHAIN_PROJECT"] = "Debug_Test_Project"
 
 print(f"Testing Connection with Key: {os.environ['LANGCHAIN_API_KEY'][:10]}...")

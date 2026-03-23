@@ -37,3 +37,6 @@ htmlcov/
 node_modules/
 .ruff_cache/
 *.ipynb
+
+# Debug/connection scripts — contain hardcoded credentials
+connection.py
