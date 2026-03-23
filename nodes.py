@@ -1,11 +1,10 @@
 import uuid
 import logging
 from langchain_core.messages import HumanMessage, AIMessage
-from langchain_ollama import ChatOllama
 from langgraph.graph import MessagesState
 from autocorrect import Speller
-from config import HARMFUL_KEYWORDS, JIO_KEYWORDS, KEYWORD_THRESHOLD, MAX_REWRITES, LLM_MODEL, CUSTOM_CORRECTIONS
-from chains import rewrite_chain
+from config import HARMFUL_KEYWORDS, JIO_KEYWORDS, KEYWORD_THRESHOLD, MAX_REWRITES, CUSTOM_CORRECTIONS
+from chains import rewrite_chain, response_model
 
 logger = logging.getLogger(__name__)
 
@@ -43,19 +42,18 @@ def validate_input(state: MessagesState):
         logger.info(f"Spell corrected: '{cleaned}' -> '{corrected}'")
 
     # Replace last message with corrected version (preserve history)
-    from langchain_core.messages import HumanMessage
     messages[-1] = HumanMessage(content=corrected)
     return {"messages": messages}
 
 def is_fallback(state: MessagesState) -> str:
     """Check if rewrite_question returned a fallback message or a real rewrite"""
     last_msg = state["messages"][-1]
-    
+
     # If last message is AIMessage it means max rewrites was hit
     if last_msg.type == "ai":
         logger.info("Fallback reached — exiting graph")
         return "end"
-    
+
     # If last message is HumanMessage it's a real rewrite — continue
     return "continue"
 
@@ -168,8 +166,7 @@ QUESTION:
 
 ANSWER (plain English only):"""
 
-    clean_llm = ChatOllama(model=LLM_MODEL, temperature=0)
-    response = clean_llm.invoke(plain_prompt)
+    response = response_model.invoke(plain_prompt)
     answer = response.content
 
     # Check if LLM returned JSON (shouldn't happen with plain text prompt)
@@ -177,10 +174,8 @@ ANSWER (plain English only):"""
     if answer.strip():
         try:
             json.loads(answer)
-            # If that succeeded, it's JSON - reject it
             answer = "I don't have enough information to answer that question."
         except (json.JSONDecodeError, ValueError):
-            # Not JSON, safe to use answer
             pass
 
     logger.info(f"Generated answer: {answer[:100]}...")
@@ -213,25 +208,14 @@ def hallucination_router(state: MessagesState) -> str:
     if not context or "No results found" in context:
         return "end"
 
-    # Use LLM to check if answer is grounded in context
-    validation_prompt = f"""You are a strict answer validator.
+    # Keyword overlap check — fast, deterministic, no LLM call
+    context_words = set(context.lower().split())
+    answer_words = set(answer.lower().split())
+    overlap = answer_words & context_words
 
-Context: {context[:1000]}
-
-Answer: {answer[:500]}
-
-Is the answer grounded in the context provided? 
-Reply with only 'yes' or 'no'."""
-
-    clean_llm = ChatOllama(model=LLM_MODEL, temperature=0)
-    response = clean_llm.invoke(validation_prompt)
-    result = response.content.strip().lower()
-    
-    logger.info(f"Hallucination check result: {result}")
-
-    if "no" in result:
-        logger.warning("Answer not grounded in context, rewriting...")
+    if len(overlap) < 5:
+        logger.warning(f"Low overlap ({len(overlap)} words), answer may not be grounded")
         return "rewrite_question"
 
-    logger.info("Answer validated successfully")
+    logger.info(f"Answer grounded — {len(overlap)} overlapping words with context")
     return "end"
