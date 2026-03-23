@@ -1,7 +1,6 @@
 from langgraph.graph import StateGraph, START, END, MessagesState
 from langgraph.prebuilt import ToolNode, tools_condition
-from database import vectorstore
-from config import DB_PATH, COLLECTION_NAME
+from config import DB_PATH, COLLECTION_NAME  # removed: from database import vectorstore
 from tools import tools
 from nodes import (
     validate_input,
@@ -12,7 +11,7 @@ from nodes import (
     generate_answer,
     format_answer,
     hallucination_router,
-    is_fallback,  # new router
+    is_fallback,
 )
 
 workflow = StateGraph(MessagesState)
