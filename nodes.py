@@ -1,28 +1,35 @@
 import uuid
 import logging
+import importlib.resources
 from langchain_core.messages import HumanMessage, AIMessage
 from langgraph.graph import MessagesState
-from autocorrect import Speller
+from symspellpy import SymSpell, Verbosity
+from better_profanity import profanity
 from config import HARMFUL_KEYWORDS, JIO_KEYWORDS, KEYWORD_THRESHOLD, MAX_REWRITES, CUSTOM_CORRECTIONS
 from chains import rewrite_chain, response_model
 
 logger = logging.getLogger(__name__)
 
 
-spell = Speller(lang='en')
+# ============= SYMSPELL SETUP =============
+sym_spell = SymSpell(max_dictionary_edit_distance=2, prefix_length=7)
+dictionary_path = str(importlib.resources.files("symspellpy") / "frequency_dictionary_en_82_765.txt")
+sym_spell.load_dictionary(dictionary_path, term_index=0, count_index=1)
+
 
 def correct_spelling(text: str) -> str:
     words = text.split()
     corrected = []
     for word in words:
         word_lower = word.lower()
-        # Custom dictionary first — handles Jio-specific terms
+        # Custom dictionary first — protects brand names and Jio-specific terms
         if word_lower in CUSTOM_CORRECTIONS:
             corrected.append(CUSTOM_CORRECTIONS[word_lower])
         else:
-            # Autocorrect handles general English typos
-            corrected.append(spell(word))
+            suggestions = sym_spell.lookup(word, Verbosity.CLOSEST, max_edit_distance=2)
+            corrected.append(suggestions[0].term if suggestions else word)
     return " ".join(corrected)
+
 
 # ============= NODE 1: VALIDATE INPUT =============
 def validate_input(state: MessagesState):
@@ -30,13 +37,20 @@ def validate_input(state: MessagesState):
     user_msg = messages[-1].content if messages else ""
     cleaned = user_msg.strip()
 
-    if len(cleaned) < 3:
+    # Length check — raised to 8 to catch gibberish like "hjkl"
+    if len(cleaned) < 8:
         return {"messages": [AIMessage(content="Please ask a more specific question about Jio services.")]}
 
+    # Harmful keyword check
     if any(keyword in cleaned.lower() for keyword in HARMFUL_KEYWORDS):
         return {"messages": [AIMessage(content="I can't help with that. Please ask about Jio services instead.")]}
 
-    # Auto correct spelling before passing forward
+    # Profanity check
+    if profanity.contains_profanity(cleaned):
+        logger.warning(f"Profanity detected in input: '{cleaned[:50]}'")
+        return {"messages": [AIMessage(content="Please keep your message respectful. How can I help you with Jio services?")]}
+
+    # Spell correction
     corrected = correct_spelling(cleaned)
     if corrected != cleaned:
         logger.info(f"Spell corrected: '{cleaned}' -> '{corrected}'")
@@ -46,6 +60,7 @@ def validate_input(state: MessagesState):
     return {"messages": messages}
 
 def after_validate(state: MessagesState) -> str:
+    """Route to end if validate_input returned a blocked response, otherwise continue"""
     last_msg = state["messages"][-1]
     if last_msg.type == "ai":
         return "end"
@@ -63,13 +78,14 @@ def is_fallback(state: MessagesState) -> str:
     # If last message is HumanMessage it's a real rewrite — continue
     return "continue"
 
+
 # ============= NODE 2: ENRICH CONTEXT =============
 def enrich_context(state: MessagesState):
     messages = state["messages"]
     question = next((msg.content for msg in messages if msg.type == "human"), "")
 
     intent = "general"
-    if any(word in question.lower() for word in ["how", "fix", "issue", "problem", "solve"]):
+    if any(word in question.lower() for word in ["how", "fix", "issue", "problem", "solve", "wrong", "not working", "broken"]):
         intent = "troubleshooting"
     elif any(word in question.lower() for word in ["what", "tell", "explain", "describe"]):
         intent = "informational"
@@ -189,11 +205,25 @@ ANSWER (plain English only):"""
 
 
 # ============= NODE 6: FORMAT ANSWER =============
+
+# Phrases that indicate a refusal or fallback — don't append sources to these
+REFUSAL_PHRASES = [
+    "i'm sorry",
+    "i can't",
+    "i cannot",
+    "couldn't find",
+    "don't have enough",
+    "please keep your message",
+    "i don't have",
+    "not able to help",
+]
+
 def format_answer(state: MessagesState):
     messages = state["messages"]
     answer_msg = messages[-1].content if messages else ""
 
-    if "I'm sorry" in answer_msg or "couldn't find" in answer_msg:
+    # Don't append sources to refusals or fallbacks
+    if any(phrase in answer_msg.lower() for phrase in REFUSAL_PHRASES):
         return {"messages": [AIMessage(content=answer_msg)]}
 
     tool_msg = next((msg.content for msg in reversed(messages) if msg.type == "tool"), "")

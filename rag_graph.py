@@ -4,6 +4,7 @@ from config import DB_PATH, COLLECTION_NAME  # removed: from database import vec
 from tools import tools
 from nodes import (
     validate_input,
+    after_validate,
     enrich_context,
     generate_query_or_respond,
     rewrite_question,
@@ -12,7 +13,6 @@ from nodes import (
     format_answer,
     hallucination_router,
     is_fallback,
-    after_validate,
 )
 
 workflow = StateGraph(MessagesState)

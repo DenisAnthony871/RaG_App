@@ -97,6 +97,6 @@ JIO_KEYWORDS = [
     "jio", "fiber", "plan", "recharge", "network", "internet",
     "speed", "connectivity", "gateway", "sim", "data", "tariff"
 ]
-KEYWORD_THRESHOLD = 2
+KEYWORD_THRESHOLD = 4
 MAX_REWRITES = 2
 RETRIEVER_K = 3

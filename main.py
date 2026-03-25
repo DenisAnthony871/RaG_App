@@ -2,6 +2,7 @@ import time
 import logging
 import uuid
 import os
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -25,22 +26,25 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-app = FastAPI(title="Jio RAG Support API", version="1.0.0")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["POST", "GET"],
-    allow_headers=["*"],
-)
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Check Ollama availability on startup"""
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Handle startup and shutdown events"""
+    # Startup
     logger.info("Checking Ollama availability...")
     check_ollama_health()
     logger.info("API startup complete")
+    yield
+    # Shutdown (add cleanup here if needed in future)
+
+
+app = FastAPI(title="Jio RAG Support API", version="1.0.0", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # TODO: lock down to frontend URL before production
+    allow_methods=["POST", "GET"],
+    allow_headers=["*"],
+)
 
 
 @app.exception_handler(Exception)
