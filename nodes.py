@@ -13,8 +13,17 @@ logger = logging.getLogger(__name__)
 
 # ============= SYMSPELL SETUP =============
 sym_spell = SymSpell(max_dictionary_edit_distance=2, prefix_length=7)
-dictionary_path = str(importlib.resources.files("symspellpy") / "frequency_dictionary_en_82_765.txt")
-sym_spell.load_dictionary(dictionary_path, term_index=0, count_index=1)
+
+try:
+    dict_file = importlib.resources.files("symspellpy") / "frequency_dictionary_en_82_765.txt"
+    with importlib.resources.as_file(dict_file) as dictionary_path:
+        loaded = sym_spell.load_dictionary(str(dictionary_path), term_index=0, count_index=1)
+    if not loaded:
+        raise RuntimeError("SymSpell dictionary loaded but returned False — file may be empty or corrupt")
+    logger.info("SymSpell dictionary loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load SymSpell dictionary: {e}")
+    raise
 
 
 def correct_spelling(text: str) -> str:
@@ -32,22 +41,26 @@ def correct_spelling(text: str) -> str:
 
 
 # ============= NODE 1: VALIDATE INPUT =============
+
+# Short terms that are valid Jio queries despite being under the length threshold
+SHORT_ALLOWLIST = {"5g", "jio", "wifi", "jiotv", "sim", "4g", "volte"}
+
 def validate_input(state: MessagesState):
     messages = state["messages"]
     user_msg = messages[-1].content if messages else ""
     cleaned = user_msg.strip()
 
-    # Length check — raised to 8 to catch gibberish like "hjkl"
-    if len(cleaned) < 8:
+    # Length check with allowlist for valid short Jio terms
+    if len(cleaned) < 8 and cleaned.lower() not in SHORT_ALLOWLIST:
         return {"messages": [AIMessage(content="Please ask a more specific question about Jio services.")]}
 
     # Harmful keyword check
     if any(keyword in cleaned.lower() for keyword in HARMFUL_KEYWORDS):
         return {"messages": [AIMessage(content="I can't help with that. Please ask about Jio services instead.")]}
 
-    # Profanity check
+    # Profanity check — no user content logged to avoid PII leakage
     if profanity.contains_profanity(cleaned):
-        logger.warning(f"Profanity detected in input: '{cleaned[:50]}'")
+        logger.warning("Profanity detected in user input")
         return {"messages": [AIMessage(content="Please keep your message respectful. How can I help you with Jio services?")]}
 
     # Spell correction
@@ -59,23 +72,21 @@ def validate_input(state: MessagesState):
     messages[-1] = HumanMessage(content=corrected)
     return {"messages": messages}
 
+
 def after_validate(state: MessagesState) -> str:
-    """Route to end if validate_input returned a blocked response, otherwise continue"""
+    """Route to end if validate_input blocked the message, otherwise continue"""
     last_msg = state["messages"][-1]
     if last_msg.type == "ai":
         return "end"
     return "continue"
 
+
 def is_fallback(state: MessagesState) -> str:
     """Check if rewrite_question returned a fallback message or a real rewrite"""
     last_msg = state["messages"][-1]
-
-    # If last message is AIMessage it means max rewrites was hit
     if last_msg.type == "ai":
         logger.info("Fallback reached — exiting graph")
         return "end"
-
-    # If last message is HumanMessage it's a real rewrite — continue
     return "continue"
 
 
@@ -191,7 +202,6 @@ ANSWER (plain English only):"""
     response = response_model.invoke(plain_prompt)
     answer = response.content
 
-    # Check if LLM returned JSON (shouldn't happen with plain text prompt)
     import json
     if answer.strip():
         try:
