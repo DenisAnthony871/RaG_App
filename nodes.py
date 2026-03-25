@@ -45,6 +45,12 @@ def validate_input(state: MessagesState):
     messages[-1] = HumanMessage(content=corrected)
     return {"messages": messages}
 
+def after_validate(state: MessagesState) -> str:
+    last_msg = state["messages"][-1]
+    if last_msg.type == "ai":
+        return "end"
+    return "continue"
+
 def is_fallback(state: MessagesState) -> str:
     """Check if rewrite_question returned a fallback message or a real rewrite"""
     last_msg = state["messages"][-1]

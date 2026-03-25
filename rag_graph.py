@@ -12,6 +12,7 @@ from nodes import (
     format_answer,
     hallucination_router,
     is_fallback,
+    after_validate,
 )
 
 workflow = StateGraph(MessagesState)
@@ -25,7 +26,11 @@ workflow.add_node("generate_answer", generate_answer)
 workflow.add_node("format_answer", format_answer)
 
 workflow.add_edge(START, "validate_input")
-workflow.add_edge("validate_input", "enrich_context")
+workflow.add_conditional_edges(
+    "validate_input",
+    after_validate,
+    {"end": END, "continue": "enrich_context"}
+)
 workflow.add_edge("enrich_context", "generate_query_or_respond")
 
 workflow.add_conditional_edges(
