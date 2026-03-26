@@ -56,15 +56,16 @@ def correct_spelling(text: str) -> str:
 # ============= NODE 1: VALIDATE INPUT =============
 
 # Short terms that are valid Jio queries despite being under the length threshold
-SHORT_ALLOWLIST = {"5g", "jio", "wifi", "jiotv", "sim", "4g", "volte", "what"}
+SHORT_ALLOWLIST = {"5g", "jio", "wifi", "jiotv", "sim", "4g", "volte"}
 
 def validate_input(state: MessagesState):
     messages = state["messages"]
     user_msg = messages[-1].content if messages else ""
     cleaned = user_msg.strip()
 
-    # Length check with allowlist for valid short Jio terms
-    if len(cleaned) < 8 and cleaned.lower() not in SHORT_ALLOWLIST:
+    # Length check — allow short Jio terms and queries starting with a question word + content
+    is_question_with_content = cleaned.lower().startswith(("what ", "how ", "why ", "when ", "where ", "who "))
+    if len(cleaned) < 8 and cleaned.lower() not in SHORT_ALLOWLIST and not is_question_with_content:
         return {"messages": [AIMessage(content="Please ask a more specific question about Jio services.")]}
 
     # Harmful keyword check

@@ -1,17 +1,21 @@
 import sqlite3
 import logging
 import uuid
-from datetime import datetime
+import os
+from datetime import datetime, timezone
 from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-DB_FILE = "./chat_history.db"
+# Absolute path derived from this file's location — avoids unexpected working directory issues
+DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chat_history.db")
 
 
 def get_connection() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_FILE)
     conn.row_factory = sqlite3.Row
+    # Enforce foreign key constraints on every connection
+    conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
 
@@ -32,7 +36,7 @@ def init_db():
                 role TEXT NOT NULL,
                 content TEXT NOT NULL,
                 timestamp TEXT NOT NULL,
-                FOREIGN KEY (conversation_id) REFERENCES conversations(conversation_id)
+                FOREIGN KEY (conversation_id) REFERENCES conversations(conversation_id) ON DELETE CASCADE
             )
         """)
         conn.execute("""
@@ -46,7 +50,7 @@ def init_db():
 def create_conversation() -> str:
     """Create a new conversation and return its ID"""
     conversation_id = str(uuid.uuid4())
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     with get_connection() as conn:
         conn.execute(
             "INSERT INTO conversations (conversation_id, created_at, updated_at) VALUES (?, ?, ?)",
@@ -67,8 +71,15 @@ def conversation_exists(conversation_id: str) -> bool:
 
 def save_message(conversation_id: str, role: str, content: str):
     """Save a single message to the database"""
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     with get_connection() as conn:
+        # Verify conversation exists before inserting to prevent orphaned rows
+        row = conn.execute(
+            "SELECT 1 FROM conversations WHERE conversation_id = ?",
+            (conversation_id,)
+        ).fetchone()
+        if not row:
+            raise ValueError(f"Cannot save message — conversation '{conversation_id}' does not exist")
         conn.execute(
             "INSERT INTO messages (conversation_id, role, content, timestamp) VALUES (?, ?, ?, ?)",
             (conversation_id, role, content, now)
@@ -114,13 +125,15 @@ def get_conversation_summary(conversation_id: str) -> Optional[dict]:
 def delete_conversation(conversation_id: str) -> bool:
     """Delete a conversation and all its messages. Returns True if deleted."""
     with get_connection() as conn:
-        result = conn.execute(
+        # Delete messages first (CASCADE handles this if FK is ON, but explicit for clarity)
+        conn.execute(
             "DELETE FROM messages WHERE conversation_id = ?",
             (conversation_id,)
         )
-        conn.execute(
+        # Capture rowcount from conversations DELETE — this is the correct existence check
+        convo_result = conn.execute(
             "DELETE FROM conversations WHERE conversation_id = ?",
             (conversation_id,)
         )
         conn.commit()
-    return result.rowcount > 0
+    return convo_result.rowcount > 0
