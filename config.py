@@ -92,7 +92,24 @@ COLLECTION_NAME = "jio_knowledge_base"
 EMBEDDING_MODEL = "nomic-embed-text"
 LLM_MODEL = "llama3.2:3b"
 
-HARMFUL_KEYWORDS = ["hack", "malware", "virus"]
+HARMFUL_KEYWORDS = [
+    # Security threats
+    "hack", "hacking", "hacked", "malware", "virus", "exploit",
+    "ddos", "phishing", "ransomware", "spyware", "keylogger",
+    "botnet", "trojan", "rootkit", "sql injection", "brute force",
+
+    # Illegal activity
+    "steal", "stolen", "bypass", "crack", "cracking", "piracy",
+    "illegal", "clone sim", "sim swap", "intercept", "sniff",
+    "eavesdrop", "wiretap", "spoof",
+
+    # Personal data abuse
+    "track someone", "spy on", "monitor someone", "stalk",
+    "location track", "call records of", "someone's data",
+
+    # Fraud
+    "fraud", "scam", "fake recharge", "cheat", "manipulate bill",
+]
 JIO_KEYWORDS = [
     "jio", "fiber", "plan", "recharge", "network", "internet",
     "speed", "connectivity", "gateway", "sim", "data", "tariff"
