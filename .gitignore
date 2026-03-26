@@ -23,6 +23,7 @@ JioChatbotDataset_Text/
 dist/
 build/
 .DS_Store
+chat_history.db
 Thumbs.db
 *.log
 *.bak

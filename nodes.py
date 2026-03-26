@@ -26,6 +26,16 @@ except Exception as e:
     raise
 
 
+# Common English words symspellpy should never modify
+SKIP_CORRECTION = {
+    "what", "where", "when", "why", "how", "who", "which",
+    "is", "are", "was", "were", "do", "does", "did",
+    "my", "me", "i", "you", "your", "the", "a", "an",
+    "it", "its", "this", "that", "these", "those",
+    "not", "no", "yes", "can", "will", "would", "should",
+}
+
+
 def correct_spelling(text: str) -> str:
     words = text.split()
     corrected = []
@@ -34,6 +44,9 @@ def correct_spelling(text: str) -> str:
         # Custom dictionary first — protects brand names and Jio-specific terms
         if word_lower in CUSTOM_CORRECTIONS:
             corrected.append(CUSTOM_CORRECTIONS[word_lower])
+        # Skip correction for common English words symspellpy manhandles
+        elif word_lower in SKIP_CORRECTION:
+            corrected.append(word)
         else:
             suggestions = sym_spell.lookup(word, Verbosity.CLOSEST, max_edit_distance=2)
             corrected.append(suggestions[0].term if suggestions else word)
@@ -43,7 +56,7 @@ def correct_spelling(text: str) -> str:
 # ============= NODE 1: VALIDATE INPUT =============
 
 # Short terms that are valid Jio queries despite being under the length threshold
-SHORT_ALLOWLIST = {"5g", "jio", "wifi", "jiotv", "sim", "4g", "volte"}
+SHORT_ALLOWLIST = {"5g", "jio", "wifi", "jiotv", "sim", "4g", "volte", "what"}
 
 def validate_input(state: MessagesState):
     messages = state["messages"]
