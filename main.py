@@ -7,9 +7,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Security
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.security.api_key import APIKeyHeader
 from pydantic import BaseModel, Field, field_validator
 from langchain_core.messages import HumanMessage
 from rag_graph import graph
@@ -26,15 +27,28 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+# ============= API KEY AUTH =============
+API_KEY = os.getenv("API_KEY")
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+async def verify_api_key(request: Request, api_key: str = Security(api_key_header)):
+    if not API_KEY:
+        logger.error("API_KEY not set in environment — all requests will be rejected")
+        raise HTTPException(status_code=500, detail="Server misconfiguration: API key not set")
+    if api_key != API_KEY:
+        client_ip = request.client.host if request.client else "unknown"
+        logger.warning(f"Rejected request — invalid or missing API key | IP: {client_ip}")
+        raise HTTPException(status_code=401, detail="Invalid or missing API key")
+    return api_key
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Handle startup and shutdown events"""
-    # Startup
     logger.info("Checking Ollama availability...")
     check_ollama_health()
     logger.info("API startup complete")
     yield
-    # Shutdown (add cleanup here if needed in future)
 
 
 app = FastAPI(title="Jio RAG Support API", version="1.0.0", lifespan=lifespan)
@@ -71,12 +85,14 @@ class ChatResponse(BaseModel):
     response_time_ms: float
 
 
+# Public endpoint — no auth required
 @app.get("/health")
 def health():
     return {"status": "healthy"}
 
 
-@app.get("/stats")
+# Protected endpoints — require valid API key
+@app.get("/stats", dependencies=[Security(verify_api_key)])
 def stats():
     try:
         result = vectorstore.get()
@@ -87,7 +103,7 @@ def stats():
         raise HTTPException(status_code=500, detail="Could not fetch stats")
 
 
-@app.post("/chat", response_model=ChatResponse)
+@app.post("/chat", response_model=ChatResponse, dependencies=[Security(verify_api_key)])
 def chat(request: ChatRequest):
     request_id = str(uuid.uuid4())[:8]
     logger.info(f"[{request_id}] Query: {request.query[:80]}")

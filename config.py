@@ -5,10 +5,15 @@ CUSTOM_CORRECTIONS = {
     "moblie": "mobile",
     "mobiie": "mobile",
     "mobil": "mobile",
-    
+
+    # Jio brand
     "jio": "Jio",
     "jiofiber": "Jio Fiber",
     "jiofibr": "Jio Fiber",
+    "jiofibre": "Jio Fiber",
+    "jiofibe": "Jio Fiber",
+    "jio4g": "Jio 4G",
+    "jio5g": "Jio 5G",
 
     # Network
     "ntwork": "network",
@@ -50,14 +55,6 @@ CUSTOM_CORRECTIONS = {
     "simcard": "sim card",
     "sim-card": "sim card",
 
-    # Jio specific
-    "jiofiber": "jio fiber",
-    "jiofibr": "jio fiber",
-    "jiofibre": "jio fiber",
-    "jiofibe": "jio fiber",
-    "jio4g": "jio 4g",
-    "jio5g": "jio 5g",
-
     # Signal
     "singal": "signal",
     "signel": "signal",
@@ -67,9 +64,12 @@ CUSTOM_CORRECTIONS = {
     "paymet": "payment",
     "paymnt": "payment",
     "paiment": "payment",
-    
+
+    # Phone
     "fone": "phone",
-    "fon": "phone", 
+    "fon": "phone",
+
+    # Not
     "nt": "not",
 
     # Activate
@@ -110,10 +110,14 @@ HARMFUL_KEYWORDS = [
     # Fraud
     "fraud", "scam", "fake recharge", "cheat", "manipulate bill",
 ]
+
 JIO_KEYWORDS = [
     "jio", "fiber", "plan", "recharge", "network", "internet",
-    "speed", "connectivity", "gateway", "sim", "data", "tariff"
+    "speed", "connectivity", "gateway", "sim", "data", "tariff",
+    "broadband", "prepaid", "postpaid", "4g", "5g", "volte",
+    "hotspot", "router", "signal", "billing", "activation"
 ]
-KEYWORD_THRESHOLD = 4
+
+KEYWORD_THRESHOLD = 3
 MAX_REWRITES = 2
 RETRIEVER_K = 3
