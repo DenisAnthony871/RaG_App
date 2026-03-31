@@ -2,16 +2,16 @@
 
 **Last Updated:** March 31, 2026
 **Base URL:** `http://127.0.0.1:8080`
-**Auth:** All endpoints except `/health` require `X-API-Key` header
+**Auth:** All endpoints except `/health` require the `X-API-Key` header
 
 ---
 
 ## Prerequisites
 
-1. **Ollama running** — `ollama serve` in a separate terminal
-2. **API running** — `python main.py` (starts on `0.0.0.0:8080`)
-3. **API key** — set `JIO_RAG_API_KEY=your-key` in `.env`
-4. **ChromaDB populated** — run `rag.ipynb` first to build the vector store
+1. Ollama running — `ollama serve` in a separate terminal
+2. API running — `python main.py` (starts on `0.0.0.0:8080`)
+3. API key — set `JIO_RAG_API_KEY=your-key` in `.env`
+4. ChromaDB populated — run `rag.ipynb` first to build the vector store
 
 ---
 
@@ -19,11 +19,11 @@
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/health` | ❌ None | Server liveness check |
-| GET | `/stats` | ✅ Required | Vector store document count |
-| POST | `/chat` | ✅ Required | Send a query, get an answer |
-| GET | `/conversations/{id}` | ✅ Required | Get conversation history |
-| DELETE | `/conversations/{id}` | ✅ Required | Delete a conversation |
+| GET | `/health` | None | Server liveness check |
+| GET | `/stats` | Required | Vector store document count |
+| POST | `/chat` | Required | Send a query, get an answer |
+| GET | `/conversations/{id}` | Required | Get conversation history |
+| DELETE | `/conversations/{id}` | Required | Delete a conversation |
 
 ---
 
@@ -64,7 +64,7 @@ curl http://127.0.0.1:8080/stats \
 
 ## 3. Chat — New Conversation
 
-Start a fresh conversation. The API will auto-create a `conversation_id` and return it.
+Start a fresh conversation. The API auto-creates a `conversation_id` and returns it in the response.
 
 ```bash
 curl -X POST http://127.0.0.1:8080/chat \
@@ -78,13 +78,13 @@ curl -X POST http://127.0.0.1:8080/chat \
 {
   "request_id": "a1b2c3d4",
   "conversation_id": "550e8400-e29b-41d4-a716-446655440000",
-  "answer": "Jio Fiber is a high-speed broadband service...\n\n---\n**Sources:** Retrieved from Jio Knowledge Base\n✓ Information verified from retrieved documents",
+  "answer": "Jio Fiber is a high-speed broadband service...\n\n---\n**Sources:** Retrieved from Jio Knowledge Base\nInformation verified from retrieved documents",
   "status": "success",
   "response_time_ms": 3241.87
 }
 ```
 
-> **Tip:** Save the `conversation_id` to continue the same conversation in your next request.
+Save the `conversation_id` to continue the same conversation in subsequent requests.
 
 ---
 
@@ -102,7 +102,7 @@ curl -X POST http://127.0.0.1:8080/chat \
   }'
 ```
 
-**Note:** If the `conversation_id` doesn't exist, the API returns `404 Conversation not found`.
+If the `conversation_id` does not exist, the API returns `404 Conversation not found`.
 
 ---
 
@@ -117,17 +117,18 @@ curl -X POST http://127.0.0.1:8080/chat \
 
 ---
 
-## 6. Chat — With Typos (Spell Correction Demo)
+## 6. Chat — Spell Correction Demo
 
-The input validator corrects typos before processing — these should work fine:
+The input validator corrects common typos before processing. These queries should resolve correctly:
 
 ```bash
-# "jiofiber" → "Jio Fiber", "interneet" → "internet"
 curl -X POST http://127.0.0.1:8080/chat \
   -H "Content-Type: application/json" \
   -H "X-API-Key: YOUR_API_KEY" \
   -d '{"query": "how fast is jiofiber interneet speed"}'
 ```
+
+`jiofiber` -> `Jio Fiber`, `interneet` -> `internet`
 
 ---
 
@@ -244,7 +245,7 @@ $BASE = "http://127.0.0.1:8080"
 $KEY  = "YOUR_API_KEY"
 $AUTH = @{"X-API-Key" = $KEY; "Content-Type" = "application/json"}
 
-Write-Host "=== Jio RAG API Tests ===" -ForegroundColor Cyan
+Write-Host "=== Jio RAG API Tests ==="
 
 Write-Host "`n1. Health Check"
 Invoke-RestMethod -Uri "$BASE/health" -Method Get | ConvertTo-Json
@@ -252,7 +253,7 @@ Invoke-RestMethod -Uri "$BASE/health" -Method Get | ConvertTo-Json
 Write-Host "`n2. Stats"
 Invoke-RestMethod -Uri "$BASE/stats" -Method Get -Headers $AUTH | ConvertTo-Json
 
-Write-Host "`n3. Chat: 'What is Jio Fiber?'"
+Write-Host "`n3. Chat: What is Jio Fiber?"
 $r = Invoke-RestMethod -Uri "$BASE/chat" -Method Post -Headers $AUTH -Body '{"query":"What is Jio Fiber?"}'
 $r | ConvertTo-Json
 
@@ -261,27 +262,25 @@ $cid = $r.conversation_id
 $body = "{`"query`":`"What plans does it offer?`",`"conversation_id`":`"$cid`"}"
 Invoke-RestMethod -Uri "$BASE/chat" -Method Post -Headers $AUTH -Body $body | ConvertTo-Json
 
-Write-Host "`n=== Tests Complete ===" -ForegroundColor Green
+Write-Host "`n=== Tests Complete ==="
 ```
 
 ---
 
 ## Swagger UI
 
-The full interactive API docs are at:
-```
-http://127.0.0.1:8080/docs
-```
-Enter your `X-API-Key` via the **Authorize** button (top-right) to test protected endpoints.
+Interactive API docs are available at `http://127.0.0.1:8080/docs`.
+
+Use the **Authorize** button (top-right of the Swagger page) to enter your `X-API-Key` before testing protected endpoints.
 
 ---
 
-## Performance Expectations
+## Performance Reference
 
 | Condition | Expected Response Time |
 |-----------|----------------------|
 | ChromaDB cold start | 5–10 seconds (first request) |
-| Warm request (CPU) | 3–8 seconds |
-| Warm request (GPU) | 0.5–2 seconds |
-| Query rewrite (1 retry) | +3–5 seconds |
-| Query rewrite (2 retries) | +6–10 seconds |
+| Warm request on CPU | 3–8 seconds |
+| Warm request on GPU | 0.5–2 seconds |
+| Query rewrite (1 retry) | Add 3–5 seconds |
+| Query rewrite (2 retries) | Add 6–10 seconds |

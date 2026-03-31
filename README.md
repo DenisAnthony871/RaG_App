@@ -1,6 +1,6 @@
 # Jio RAG Support Agent
 
-An AI-powered customer support chatbot for Jio services that runs entirely on your local machine — no paid APIs required. It uses a Retrieval-Augmented Generation (RAG) pipeline to search a Jio knowledge base and generate accurate, context-grounded answers.
+An AI-powered customer support chatbot for Jio services that runs entirely on your local machine. No paid APIs required. It uses a Retrieval-Augmented Generation (RAG) pipeline to search a Jio knowledge base and generate accurate, context-grounded answers.
 
 > **What is RAG?** Instead of relying on the AI's training data alone, RAG first searches a knowledge base for relevant documents, then uses those documents as context to generate an answer. This makes responses more accurate and grounded in real information.
 
@@ -8,17 +8,17 @@ An AI-powered customer support chatbot for Jio services that runs entirely on yo
 
 ## Features
 
-- 🔐 **API Key Authentication** — `X-API-Key` header secures all protected endpoints
-- 💬 **Persistent Conversation History** — SQLite-backed multi-turn chat sessions
-- 🔍 **RAG Pipeline** — searches local Jio knowledge base (PDFs, FAQs, plans)
-- ✏️ **Spell Correction** — SymSpell with 50+ Jio-specific custom corrections
-- 🚫 **Input Validation** — harmful keyword filter, profanity filter, length checks
-- 🔄 **Query Rewriting** — automatically retries with improved query if results are poor (max 2 retries)
-- 📋 **Document Grading** — scores retrieved documents for Jio relevance before answering
-- 🛡️ **Hallucination Check** — validates answer is grounded in retrieved context (word overlap)
-- 📎 **Source Attribution** — appends "Retrieved from Jio Knowledge Base" footer to answers
-- 🧪 **LangSmith Tracing** — optional pipeline monitoring and debugging
-- 📖 **Swagger UI** — interactive API docs at `/docs`
+- API Key Authentication — `X-API-Key` header secures all protected endpoints
+- Persistent Conversation History — SQLite-backed multi-turn chat sessions
+- RAG Pipeline — searches local Jio knowledge base (PDFs, FAQs, plans)
+- Spell Correction — SymSpell with 50+ Jio-specific custom corrections
+- Input Validation — harmful keyword filter, profanity filter, length checks
+- Query Rewriting — automatically retries with improved query if results are poor (max 2 retries)
+- Document Grading — scores retrieved documents for Jio relevance before answering
+- Hallucination Check — validates answer is grounded in retrieved context via word overlap
+- Source Attribution — appends "Retrieved from Jio Knowledge Base" footer to answers
+- LangSmith Tracing — optional pipeline monitoring and debugging
+- Swagger UI — interactive API docs at `/docs`
 
 ---
 
@@ -26,34 +26,34 @@ An AI-powered customer support chatbot for Jio services that runs entirely on yo
 
 When a user sends a question, it passes through an 8-node LangGraph pipeline:
 
-```text
+```
 User Question
-      │
-1. validate_input      — spell correct, block harmful/profanity/gibberish input
-      │
-      ├─(blocked)──────────────────────────────────────────────► END
-      │
-2. enrich_context      — detect intent (troubleshooting / billing / informational)
-      │
+      |
+1. validate_input          — spell correct, block harmful/profanity/gibberish input
+      |
+      +-(blocked)---------------------------------------------------> END
+      |
+2. enrich_context          — detect intent (troubleshooting / billing / informational)
+      |
 3. generate_query_or_respond  — always forces a ChromaDB retrieval tool call
-      │
-4. retrieve            — ToolNode runs retriever_tool → top 5 docs from ChromaDB
-      │
-5. grade_documents     — keyword overlap scoring (threshold = 3 Jio keywords)
-      │
-      ├─(not relevant)─► rewrite_question ──► (max 2 rewrites, then fallback END)
-      │                        │
-      │                        └─(continue)──► back to generate_query_or_respond
-      │
-6. generate_answer     — llama3.2:3b generates plain-English answer from context
-      │
-7. format_answer       — appends sources footer (skipped for refusal messages)
-      │
-8. hallucination_router — checks word overlap between answer and context (≥5 words)
-      │
-      ├─(low overlap)──► rewrite_question (retry)
-      │
-      └─(grounded)─────────────────────────────────────────────► END
+      |
+4. retrieve                — ToolNode runs retriever_tool, returns top 5 docs from ChromaDB
+      |
+5. grade_documents         — keyword overlap scoring (threshold = 3 Jio keywords)
+      |
+      +-(not relevant)--> rewrite_question --> (max 2 rewrites, then fallback END)
+      |                        |
+      |                        +-(continue)--> back to generate_query_or_respond
+      |
+6. generate_answer         — llama3.2:3b generates plain-English answer from context
+      |
+7. format_answer           — appends sources footer (skipped for refusal messages)
+      |
+8. hallucination_router    — checks word overlap between answer and context (>= 5 words)
+      |
+      +-(low overlap)----> rewrite_question (retry)
+      |
+      +-(grounded)-------------------------------------------------> END
 ```
 
 ---
@@ -78,26 +78,21 @@ User Question
 
 ## Project Structure
 
-```text
+```
 RaG_App/
 ├── main.py            # FastAPI app — endpoints, auth, conversation wiring
 ├── rag_graph.py       # LangGraph graph assembly — wires all nodes together
-├── nodes.py           # All 8 node functions + routing logic
-├── chains.py          # Rewrite chain (prompt → llama3.2:3b → string)
+├── nodes.py           # All 8 node functions and routing logic
+├── chains.py          # Rewrite chain (prompt -> llama3.2:3b -> string)
 ├── tools.py           # retriever_tool — searches ChromaDB, returns top 5 docs
-├── database.py        # ChromaDB + embeddings setup, Ollama health check
-├── chat_history.py    # SQLite CRUD — conversations + messages tables
+├── database.py        # ChromaDB and embeddings setup, Ollama health check
+├── chat_history.py    # SQLite CRUD — conversations and messages tables
 ├── config.py          # All configuration constants and keyword lists
 ├── rag.ipynb          # Jupyter notebook — data ingestion and vector indexing
 ├── .env               # API keys (never committed to git)
 ├── .env.example       # Template for setting up .env
 ├── requirements.txt   # Python dependencies
-├── chat_history.db    # SQLite database (auto-created on first run)
-│
-├── PROJECT_STATUS.md  # Detailed feature and file status
-├── BUG_REPORT.md      # Bug tracker (resolved + open)
-├── REMAINING_WORK.md  # Prioritised backlog
-└── TESTING_ENDPOINTS.md  # curl / Python / PowerShell API examples
+└── chat_history.db    # SQLite database (auto-created on first run, git-ignored)
 ```
 
 ---
@@ -164,7 +159,7 @@ cp .env.example .env
 Edit `.env` and fill in your values:
 
 ```env
-# Required — your API security key (make this a long random string)
+# Required — your API security key (use a long random string)
 JIO_RAG_API_KEY=your-secret-api-key-here
 
 # Optional — LangSmith tracing (get a free key at smith.langchain.com)
@@ -173,7 +168,7 @@ LANGCHAIN_TRACING_V2=true
 LANGCHAIN_PROJECT=Jio_RAG_Project
 ```
 
-> If you don't have a LangSmith key, set `LANGCHAIN_TRACING_V2=false` to disable tracing.
+> If you do not have a LangSmith key, set `LANGCHAIN_TRACING_V2=false` to disable tracing.
 
 ### Step 6 — Build the knowledge base
 
@@ -197,11 +192,11 @@ The API starts on `http://0.0.0.0:8080` and is accessible at:
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| GET | `/health` | ❌ None | Server liveness check |
-| GET | `/stats` | ✅ Required | Vector store document count |
-| POST | `/chat` | ✅ Required | Send a question, get an answer |
-| GET | `/conversations/{id}` | ✅ Required | Get full conversation history |
-| DELETE | `/conversations/{id}` | ✅ Required | Delete a conversation |
+| GET | `/health` | None | Server liveness check |
+| GET | `/stats` | Required | Vector store document count |
+| POST | `/chat` | Required | Send a question, get an answer |
+| GET | `/conversations/{id}` | Required | Get full conversation history |
+| DELETE | `/conversations/{id}` | Required | Delete a conversation |
 
 All protected endpoints require the header: `X-API-Key: <your key>`
 
@@ -217,11 +212,12 @@ curl -X POST http://127.0.0.1:8080/chat \
 ```
 
 **Response:**
+
 ```json
 {
   "request_id": "a1b2c3d4",
   "conversation_id": "550e8400-e29b-41d4-a716-446655440000",
-  "answer": "Jio Fiber is a high-speed broadband service...\n\n---\n**Sources:** Retrieved from Jio Knowledge Base\n✓ Information verified from retrieved documents",
+  "answer": "Jio Fiber is a high-speed broadband service...\n\n---\n**Sources:** Retrieved from Jio Knowledge Base\nInformation verified from retrieved documents",
   "status": "success",
   "response_time_ms": 3241.87
 }
@@ -241,13 +237,11 @@ curl -X POST http://127.0.0.1:8080/chat \
   }'
 ```
 
-> See [`TESTING_ENDPOINTS.md`](TESTING_ENDPOINTS.md) for full curl, Python, and PowerShell examples.
-
 ---
 
 ## Configuration
 
-All settings are in `config.py`. You can adjust these without modifying the core logic:
+All settings are in `config.py`. You can adjust these without modifying the core pipeline logic:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -255,7 +249,7 @@ All settings are in `config.py`. You can adjust these without modifying the core
 | `COLLECTION_NAME` | `jio_knowledge_base` | ChromaDB collection name |
 | `LLM_MODEL` | `llama3.2:3b` | Ollama model for answer generation |
 | `EMBEDDING_MODEL` | `nomic-embed-text` | Ollama model for embeddings |
-| `MAX_REWRITES` | `2` | Max query rewrites before fallback |
+| `MAX_REWRITES` | `2` | Max query rewrites before fallback answer |
 | `RETRIEVER_K` | `3` | Number of docs to retrieve per search |
 | `KEYWORD_THRESHOLD` | `3` | Min Jio keyword matches to grade docs as relevant |
 
@@ -263,44 +257,30 @@ All settings are in `config.py`. You can adjust these without modifying the core
 
 ## Troubleshooting
 
-**`JIO_RAG_API_KEY` not set — all requests rejected with 500**
+**`JIO_RAG_API_KEY` not set — requests rejected with 500**
 Add `JIO_RAG_API_KEY=your-key` to your `.env` file and restart the API.
 
 **401 Unauthorized on all requests**
-Make sure you're sending the `X-API-Key: YOUR_API_KEY` header. The health endpoint (`/health`) is the only public endpoint.
+All endpoints except `/health` require the `X-API-Key: YOUR_API_KEY` header.
 
 **Ollama not found / connection refused**
-Start Ollama in a separate terminal: `ollama serve`. The API will refuse to start if Ollama is unreachable.
+Start Ollama in a separate terminal with `ollama serve`. The API will refuse to start if Ollama is unreachable.
 
-**ChromaDB not found / empty stats**
+**ChromaDB not found / empty stats response**
 Run the `rag.ipynb` notebook first to create and populate the vector store. The `./chroma_db_v4` folder is not included in the repo.
 
 **Port already in use**
-Edit the `port` in the `uvicorn.run()` call at the bottom of `main.py`, or kill the existing process.
+Edit the `port` value in the `uvicorn.run()` call at the bottom of `main.py`.
 
 **Slow responses**
 Expected when running `llama3.2:3b` on CPU — allow 3–10 seconds per request. A GPU significantly reduces this. Queries that trigger rewrites will take proportionally longer.
-
-**`chat_history.db` not created**
-The SQLite database is auto-created by `init_db()` on startup. Check that the API started without errors.
-
----
-
-## Project Documentation
-
-| File | Purpose |
-|------|---------|
-| [`PROJECT_STATUS.md`](PROJECT_STATUS.md) | Full status of every file and feature |
-| [`BUG_REPORT.md`](BUG_REPORT.md) | Bug tracker (5 fixed, 3 open) |
-| [`REMAINING_WORK.md`](REMAINING_WORK.md) | Prioritised backlog with effort estimates |
-| [`TESTING_ENDPOINTS.md`](TESTING_ENDPOINTS.md) | API testing guide with examples |
 
 ---
 
 ## Notes
 
-- ChromaDB folders (`chroma_db_v4`, etc.) are excluded from the repo — rebuild locally via `rag.ipynb`
+- ChromaDB folders (`chroma_db_v4`, etc.) are excluded from the repo — rebuild locally using `rag.ipynb`
 - Ollama must be running before starting the API (`ollama serve`)
 - Keep `workers=1` in uvicorn — Ollama handles one inference at a time
 - The `.env` file is excluded from git — never commit API keys
-- `chat_history.db` is auto-created on first startup — it is excluded from the repo via `.gitignore`
+- `chat_history.db` is auto-created on first startup and excluded from git via `.gitignore`

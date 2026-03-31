@@ -1,43 +1,70 @@
+# Python
 .venv/
 __pycache__/
 *.pyc
 *.pyo
-*.bin
-*.sqlite3
-chroma_db_v4/
-chroma_db_parent/
-chroma_langchain_db/
-.env
-.env.local
-.env.*.local
-*.ipynb_checkpoints
-Untitled*.ipynb
-final_knowledge_base.json
-jio_faq_data.json
-final_merged_chunks.json
-Documents/
-JioChatbotDataset_Text/
-*.pdf
-.pytest_cache/
 *.egg-info/
 dist/
 build/
-.DS_Store
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# ChromaDB vector stores
+chroma_db_v4/
+chroma_db_parent/
+chroma_langchain_db/
+
+# Jupyter notebooks
+*.ipynb
+*.ipynb_checkpoints
+Untitled*.ipynb
+
+# Data files — large or sensitive, not for version control
+final_knowledge_base.json
+jio_faq_data.json
+final_merged_chunks.json
+*.pdf
+Documents/
+JioChatbotDataset_Text/
+
+# Database
 chat_history.db
-Thumbs.db
-*.log
-*.bak
-*.swp
+*.db
+*.sqlite3
+
+# Internal development docs — not for public GitHub repo
+PROJECT_STATUS.md
+BUG_REPORT.md
+REMAINING_WORK.md
+TESTING_ENDPOINTS.md
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Editor and IDE
 .vscode/settings.json
 .vscode/launch.json
 .idea/
+.DS_Store
+Thumbs.db
+
+# Tool caches
 .mypy_cache/
-.coverage
-htmlcov/
+.ruff_cache/
+
+# Misc
+*.log
+*.bak
+*.swp
+
+# Config files with local paths or credentials
 .rhdarc.json
 node_modules/
-.ruff_cache/
-*.ipynb
 
-# Debug/connection scripts — contain hardcoded credentials
+# Debug or connection scripts containing hardcoded credentials
 connection.py
