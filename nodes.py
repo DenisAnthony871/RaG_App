@@ -89,7 +89,7 @@ def validate_input(state: JioState):
     # Spell correction
     corrected = correct_spelling(cleaned)
     if corrected != cleaned:
-        logger.info(f"Spell corrected: '{cleaned}' -> '{corrected}'")
+        logger.info("Spell correction applied to user input")
 
     # Replace last message with corrected version (preserve history)
     messages[-1] = HumanMessage(content=corrected)
