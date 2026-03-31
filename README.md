@@ -8,55 +8,71 @@ An AI-powered customer support chatbot for Jio services that runs entirely on yo
 
 ## Features
 
-- Searches a local Jio knowledge base (PDFs, FAQs, user guides)
-- Automatically rewrites vague queries for better search results
-- Grades retrieved documents for relevance before answering
-- Validates and filters harmful or gibberish input
-- LangSmith tracing support for debugging and monitoring
-- Production-ready FastAPI backend with logging and error handling
+- 🔐 **API Key Authentication** — `X-API-Key` header secures all protected endpoints
+- 💬 **Persistent Conversation History** — SQLite-backed multi-turn chat sessions
+- 🔍 **RAG Pipeline** — searches local Jio knowledge base (PDFs, FAQs, plans)
+- ✏️ **Spell Correction** — SymSpell with 50+ Jio-specific custom corrections
+- 🚫 **Input Validation** — harmful keyword filter, profanity filter, length checks
+- 🔄 **Query Rewriting** — automatically retries with improved query if results are poor (max 2 retries)
+- 📋 **Document Grading** — scores retrieved documents for Jio relevance before answering
+- 🛡️ **Hallucination Check** — validates answer is grounded in retrieved context (word overlap)
+- 📎 **Source Attribution** — appends "Retrieved from Jio Knowledge Base" footer to answers
+- 🧪 **LangSmith Tracing** — optional pipeline monitoring and debugging
+- 📖 **Swagger UI** — interactive API docs at `/docs`
 
 ---
 
 ## How It Works
 
-When a user sends a question, it goes through the following pipeline:
+When a user sends a question, it passes through an 8-node LangGraph pipeline:
 
 ```text
-User sends a question
-        |
-1. Validate Input          — block harmful or gibberish queries
-        |
-2. Detect Intent           — classify as troubleshooting / billing / informational
-        |
-3. Retrieve Documents      — search ChromaDB vector store
-        |
-4. Grade Documents         — are the results relevant?
-        |                               |
-       Yes                    No (max 2 retries)
-        |                               |
-5. Generate Answer          Rewrite and Search Again
-        |
-6. Format Answer            — add sources footer
-        |
-7. Hallucination Check      — verify answer length vs context
-        |
-   Final Response
+User Question
+      │
+1. validate_input      — spell correct, block harmful/profanity/gibberish input
+      │
+      ├─(blocked)──────────────────────────────────────────────► END
+      │
+2. enrich_context      — detect intent (troubleshooting / billing / informational)
+      │
+3. generate_query_or_respond  — always forces a ChromaDB retrieval tool call
+      │
+4. retrieve            — ToolNode runs retriever_tool → top 5 docs from ChromaDB
+      │
+5. grade_documents     — keyword overlap scoring (threshold = 3 Jio keywords)
+      │
+      ├─(not relevant)─► rewrite_question ──► (max 2 rewrites, then fallback END)
+      │                        │
+      │                        └─(continue)──► back to generate_query_or_respond
+      │
+6. generate_answer     — llama3.2:3b generates plain-English answer from context
+      │
+7. format_answer       — appends sources footer (skipped for refusal messages)
+      │
+8. hallucination_router — checks word overlap between answer and context (≥5 words)
+      │
+      ├─(low overlap)──► rewrite_question (retry)
+      │
+      └─(grounded)─────────────────────────────────────────────► END
 ```
 
 ---
 
 ## Tech Stack
 
-| Tool | Purpose |
-|------|---------|
-| [LangGraph](https://github.com/langchain-ai/langgraph) | Agent graph orchestration |
-| [LangChain](https://python.langchain.com) | LLM chains and tooling |
-| [ChromaDB](https://www.trychroma.com) | Local vector database |
-| [Ollama](https://ollama.com) | Run LLMs locally |
-| [llama3.1](https://ollama.com/library/llama3.1) | Local LLM for answer generation |
-| [nomic-embed-text](https://ollama.com/library/nomic-embed-text) | Local embedding model |
-| [FastAPI](https://fastapi.tiangolo.com) | REST API backend |
-| [LangSmith](https://smith.langchain.com) | Tracing and monitoring |
+| Tool | Version / Model | Purpose |
+|------|----------------|---------|
+| [FastAPI](https://fastapi.tiangolo.com) | 0.110+ | REST API backend |
+| [LangGraph](https://github.com/langchain-ai/langgraph) | latest | Agent graph orchestration |
+| [LangChain](https://python.langchain.com) | latest | LLM chains and tooling |
+| [ChromaDB](https://www.trychroma.com) | latest | Local vector database |
+| [Ollama](https://ollama.com) | latest | Run LLMs locally |
+| [llama3.2:3b](https://ollama.com/library/llama3.2) | 3b | Local LLM for answer generation |
+| [nomic-embed-text](https://ollama.com/library/nomic-embed-text) | latest | Local embedding model |
+| [SymSpellPy](https://github.com/mammothb/symspellpy) | latest | Spell correction |
+| [better-profanity](https://github.com/snguyenthanh/better_profanity) | latest | Profanity filtering |
+| [SQLite](https://www.sqlite.org) | built-in | Conversation history persistence |
+| [LangSmith](https://smith.langchain.com) | — | Optional tracing and monitoring |
 
 ---
 
@@ -64,19 +80,24 @@ User sends a question
 
 ```text
 RaG_App/
-├── backend/
-│   ├── main.py          # FastAPI app — API endpoints and request handling
-│   ├── rag_graph.py     # Graph assembly — connects all nodes together
-│   ├── nodes.py         # Node functions — each step in the pipeline
-│   ├── chains.py        # Rewrite chain — improves vague queries
-│   ├── tools.py         # Retriever tool — searches ChromaDB
-│   ├── database.py      # Database setup — loads ChromaDB on startup
-│   └── config.py        # Configuration — all settings in one place
-├── rag.ipynb            # Jupyter notebook — data ingestion and indexing
-├── .env                 # API keys (never committed to git)
-├── .gitignore
-├── requirements.txt
-└── README.md
+├── main.py            # FastAPI app — endpoints, auth, conversation wiring
+├── rag_graph.py       # LangGraph graph assembly — wires all nodes together
+├── nodes.py           # All 8 node functions + routing logic
+├── chains.py          # Rewrite chain (prompt → llama3.2:3b → string)
+├── tools.py           # retriever_tool — searches ChromaDB, returns top 5 docs
+├── database.py        # ChromaDB + embeddings setup, Ollama health check
+├── chat_history.py    # SQLite CRUD — conversations + messages tables
+├── config.py          # All configuration constants and keyword lists
+├── rag.ipynb          # Jupyter notebook — data ingestion and vector indexing
+├── .env               # API keys (never committed to git)
+├── .env.example       # Template for setting up .env
+├── requirements.txt   # Python dependencies
+├── chat_history.db    # SQLite database (auto-created on first run)
+│
+├── PROJECT_STATUS.md  # Detailed feature and file status
+├── BUG_REPORT.md      # Bug tracker (resolved + open)
+├── REMAINING_WORK.md  # Prioritised backlog
+└── TESTING_ENDPOINTS.md  # curl / Python / PowerShell API examples
 ```
 
 ---
@@ -87,7 +108,7 @@ Before you start, make sure you have the following installed:
 
 - **Python 3.12+** — [Download here](https://www.python.org/downloads/)
 - **uv** (fast Python package manager) — `pip install uv`
-- **Ollama** — [Download here](https://ollama.com) — used to run LLMs locally
+- **Ollama** — [Download here](https://ollama.com) — runs LLMs locally
 - **Git** — [Download here](https://git-scm.com)
 
 ---
@@ -121,16 +142,16 @@ uv pip install -r requirements.txt
 
 ### Step 4 — Pull the required Ollama models
 
-Make sure Ollama is running, then pull the models:
+Make sure Ollama is running first (`ollama serve`), then pull:
 
 ```bash
-ollama pull llama3.1
+ollama pull llama3.2:3b
 ollama pull nomic-embed-text
 ```
 
 ### Step 5 — Set up environment variables
 
-Copy `.env.example` to `.env` and fill in your API keys:
+Copy `.env.example` to `.env`:
 
 ```bash
 # Windows
@@ -140,101 +161,146 @@ copy .env.example .env
 cp .env.example .env
 ```
 
-Edit `.env` and add your LangSmith API key:
+Edit `.env` and fill in your values:
 
-```bash
-LANGCHAIN_API_KEY=YOUR_LANGSMITH_API_KEY_HERE
+```env
+# Required — your API security key (make this a long random string)
+JIO_RAG_API_KEY=your-secret-api-key-here
+
+# Optional — LangSmith tracing (get a free key at smith.langchain.com)
+LANGCHAIN_API_KEY=your-langsmith-key-here
 LANGCHAIN_TRACING_V2=true
 LANGCHAIN_PROJECT=Jio_RAG_Project
 ```
 
-**API Key Source:**
-- **LangSmith API:** Get a free key at [smith.langchain.com](https://smith.langchain.com)
-  - LangSmith is optional but recommended for debugging and monitoring the RAG pipeline
-  - If you skip this, set `LANGCHAIN_TRACING_V2=false` to disable tracing
+> If you don't have a LangSmith key, set `LANGCHAIN_TRACING_V2=false` to disable tracing.
 
 ### Step 6 — Build the knowledge base
 
-Open `rag.ipynb` in Jupyter and run the indexing cells. This loads your Jio documents (PDFs, JSONs) into ChromaDB. The vector store will be saved locally to `./chroma_db_v4`.
+Open `rag.ipynb` in Jupyter and run all cells. This loads Jio documents (PDFs, JSONs) into ChromaDB and saves the vector store to `./chroma_db_v4`.
 
-**Note:** This step is required before running the API. The ChromaDB folder is not included in the repo due to its large file size.
+> **This step is required before running the API.** The ChromaDB folder is excluded from the repo due to its size.
 
 ### Step 7 — Start the API
 
 ```bash
-cd backend
-uvicorn main:app --host 127.0.0.1 --port 8080
+python main.py
 ```
 
-The API will be available at `http://127.0.0.1:8080`
-
-Interactive API docs are available at `http://127.0.0.1:8080/docs`
+The API starts on `http://0.0.0.0:8080` and is accessible at:
+- **API base:** `http://127.0.0.1:8080`
+- **Swagger UI:** `http://127.0.0.1:8080/docs`
 
 ---
 
 ## API Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/health` | Check if the API is running |
-| GET | `/stats` | Show vector count in ChromaDB |
-| POST | `/chat` | Send a question, get an answer |
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/health` | ❌ None | Server liveness check |
+| GET | `/stats` | ✅ Required | Vector store document count |
+| POST | `/chat` | ✅ Required | Send a question, get an answer |
+| GET | `/conversations/{id}` | ✅ Required | Get full conversation history |
+| DELETE | `/conversations/{id}` | ✅ Required | Delete a conversation |
 
-### Example Request
+All protected endpoints require the header: `X-API-Key: <your key>`
+
+---
+
+### Example: Start a conversation
 
 ```bash
 curl -X POST http://127.0.0.1:8080/chat \
   -H "Content-Type: application/json" \
-  -d '{"query": "How do I fix slow internet on Jio Fiber?"}'
+  -H "X-API-Key: YOUR_API_KEY" \
+  -d '{"query": "What is Jio Fiber?"}'
 ```
 
-### Example Response
-
+**Response:**
 ```json
 {
   "request_id": "a1b2c3d4",
-  "answer": "To fix slow internet on Jio Fiber, try restarting your Home Gateway...",
+  "conversation_id": "550e8400-e29b-41d4-a716-446655440000",
+  "answer": "Jio Fiber is a high-speed broadband service...\n\n---\n**Sources:** Retrieved from Jio Knowledge Base\n✓ Information verified from retrieved documents",
   "status": "success",
-  "response_time_ms": 4821.23
+  "response_time_ms": 3241.87
 }
 ```
+
+### Example: Continue a conversation (multi-turn)
+
+Pass the `conversation_id` from the previous response to maintain context:
+
+```bash
+curl -X POST http://127.0.0.1:8080/chat \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -d '{
+    "query": "What plans does it offer?",
+    "conversation_id": "550e8400-e29b-41d4-a716-446655440000"
+  }'
+```
+
+> See [`TESTING_ENDPOINTS.md`](TESTING_ENDPOINTS.md) for full curl, Python, and PowerShell examples.
 
 ---
 
 ## Configuration
 
-All settings are in `backend/config.py`. You can adjust these without modifying the core logic:
+All settings are in `config.py`. You can adjust these without modifying the core logic:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DB_PATH` | `./chroma_db_v4` | Where ChromaDB is stored |
-| `LLM_MODEL` | `llama3.1` | Ollama model used for answers |
-| `EMBEDDING_MODEL` | `nomic-embed-text` | Ollama model used for search |
-| `MAX_REWRITES` | `2` | How many times to retry a bad search |
-| `RETRIEVER_K` | `3` | Number of documents to retrieve per search |
-| `KEYWORD_THRESHOLD` | `2` | Minimum keyword matches to consider docs relevant |
+| `DB_PATH` | `./chroma_db_v4` | Where ChromaDB stores vectors |
+| `COLLECTION_NAME` | `jio_knowledge_base` | ChromaDB collection name |
+| `LLM_MODEL` | `llama3.2:3b` | Ollama model for answer generation |
+| `EMBEDDING_MODEL` | `nomic-embed-text` | Ollama model for embeddings |
+| `MAX_REWRITES` | `2` | Max query rewrites before fallback |
+| `RETRIEVER_K` | `3` | Number of docs to retrieve per search |
+| `KEYWORD_THRESHOLD` | `3` | Min Jio keyword matches to grade docs as relevant |
 
 ---
 
 ## Troubleshooting
 
-**Ollama not found / connection refused**
-Make sure Ollama is running before starting the API. Open a separate terminal and run `ollama serve`.
+**`JIO_RAG_API_KEY` not set — all requests rejected with 500**
+Add `JIO_RAG_API_KEY=your-key` to your `.env` file and restart the API.
 
-**ChromaDB not found error**
-You need to run the indexing notebook first (`rag.ipynb`) to create the vector store.
+**401 Unauthorized on all requests**
+Make sure you're sending the `X-API-Key: YOUR_API_KEY` header. The health endpoint (`/health`) is the only public endpoint.
+
+**Ollama not found / connection refused**
+Start Ollama in a separate terminal: `ollama serve`. The API will refuse to start if Ollama is unreachable.
+
+**ChromaDB not found / empty stats**
+Run the `rag.ipynb` notebook first to create and populate the vector store. The `./chroma_db_v4` folder is not included in the repo.
 
 **Port already in use**
-Change the port in `main.py` or kill the existing process using port 8080.
+Edit the `port` in the `uvicorn.run()` call at the bottom of `main.py`, or kill the existing process.
 
 **Slow responses**
-This is expected when running `llama3.1` locally on CPU — responses can take 10 to 60 seconds depending on your hardware. A GPU will significantly improve speed.
+Expected when running `llama3.2:3b` on CPU — allow 3–10 seconds per request. A GPU significantly reduces this. Queries that trigger rewrites will take proportionally longer.
+
+**`chat_history.db` not created**
+The SQLite database is auto-created by `init_db()` on startup. Check that the API started without errors.
+
+---
+
+## Project Documentation
+
+| File | Purpose |
+|------|---------|
+| [`PROJECT_STATUS.md`](PROJECT_STATUS.md) | Full status of every file and feature |
+| [`BUG_REPORT.md`](BUG_REPORT.md) | Bug tracker (5 fixed, 3 open) |
+| [`REMAINING_WORK.md`](REMAINING_WORK.md) | Prioritised backlog with effort estimates |
+| [`TESTING_ENDPOINTS.md`](TESTING_ENDPOINTS.md) | API testing guide with examples |
 
 ---
 
 ## Notes
 
-- ChromaDB folders (`chroma_db_v4`, etc.) are excluded from the repo — rebuild them locally using the indexing notebook
-- Ollama must be running before starting the API
-- Keep `workers=1` in uvicorn since Ollama processes one request at a time
-- The `.env` file is excluded from git — never commit API keys to the repository
+- ChromaDB folders (`chroma_db_v4`, etc.) are excluded from the repo — rebuild locally via `rag.ipynb`
+- Ollama must be running before starting the API (`ollama serve`)
+- Keep `workers=1` in uvicorn — Ollama handles one inference at a time
+- The `.env` file is excluded from git — never commit API keys
+- `chat_history.db` is auto-created on first startup — it is excluded from the repo via `.gitignore`
