@@ -1,122 +1,113 @@
-# Bug Report - Jio RAG Support Agent
+# Bug Report — Jio RAG Support Agent
 
-**Date:** March 10, 2026  
+**Last Updated:** March 31, 2026
 **Severity Levels:** 🔴 Critical | 🟠 High | 🟡 Medium | 🟢 Low
 
 ---
 
-## 🐛 Bugs Found
+## ✅ Resolved Bugs (All Fixed)
 
-### BUG #1: Message History Loss in `validate_input` 🔴 CRITICAL
+### BUG #1: Message History Loss in `validate_input` ✅ FIXED
+**File:** `nodes.py` | **Was:** 🔴 Critical
 
-**File:** [nodes.py](nodes.py#L28-L47)  
-**Severity:** Critical - Breaks conversation context
-
-**Problem:**
-
+**Was:**
 ```python
-# Current buggy code
 corrected_messages = [HumanMessage(content=corrected)]
-return {"messages": corrected_messages}  # ❌ Replaces ALL messages
+return {"messages": corrected_messages}  # ❌ Replaced ALL messages
 ```
-
-This completely replaces the message history with just the corrected message. All previous AI responses, tool results, and context are lost.
-
-**Impact:**
-- Graph cannot track rewrite count (rewrite_question will always think rewrite_count = 0)
-- Conversation history is broken
-- Hallucination router cannot find tool results to validate context
-
-**Fix:** Append corrected message instead of replacing:
-
+**Fix Applied:**
 ```python
 messages[-1] = HumanMessage(content=corrected)
-return {"messages": messages}
+return {"messages": messages}  # ✅ Replaces only last message
 ```
 
 ---
 
-### BUG #2: Message History Loss in `rewrite_question` 🔴 CRITICAL
+### BUG #2: Message History Loss in `rewrite_question` ✅ FIXED
+**File:** `nodes.py` | **Was:** 🔴 Critical
 
-**File:** [nodes.py](nodes.py#L104-L122)  
-**Severity:** Critical - Breaks graph flow
-
-**Problem:**
-
+**Was:**
 ```python
-return {"messages": [HumanMessage(content=better_question)]}  # ❌ Loses all context
+return {"messages": [HumanMessage(content=better_question)]}  # ❌ Dropped all context
 ```
-
-This replaces all messages with just the rewritten question. Loses:
-- Original question
-- Retrieved documents (tool results)
-- Previous AI responses
-
-**Impact:**
-- Tool results from retrieval are lost
-- Answer generation fails (can't find tool message for context)
-- Graph resets unnecessarily
-
-**Fix:** Append the rewritten question:
-
+**Fix Applied:**
 ```python
 messages.append(HumanMessage(content=better_question))
-return {"messages": messages}
+return {"messages": messages}  # ✅ Appends rewritten question
 ```
 
 ---
 
-### BUG #3: Unsafe Vectorstore Access in `/stats` Endpoint 🟠 HIGH
+### BUG #3: Unsafe Vectorstore Access in `/stats` ✅ FIXED
+**File:** `main.py` | **Was:** 🟠 High
 
-**File:** [main.py](main.py#L70-L76)  
-**Severity:** High - Can crash endpoint
-
-**Problem:**
-
+**Was:**
 ```python
-count = len(vectorstore.get().get("ids", []))  # Chains .get() calls unsafely
+count = len(vectorstore.get().get("ids", []))  # ❌ Crashes if .get() returns None
 ```
-
-If `vectorstore.get()` returns `None`, calling `.get("ids", [])` on None will crash.
-
-**Fix:**
-
+**Fix Applied:**
 ```python
 result = vectorstore.get()
-count = len(result.get("ids", []) if result else [])
+count = len(result.get("ids", []) if result else [])  # ✅ Safe null check
 ```
 
 ---
 
-### BUG #4: Incomplete Error Handling in Chat Endpoint 🟡 MEDIUM
+### BUG #5: Incomplete JSON Detection in `generate_answer` ✅ FIXED
+**File:** `nodes.py` | **Was:** 🟡 Medium
 
-**File:** [main.py](main.py#L87-D101)  
-**Severity:** Medium - Hides root cause
+**Was:**
+```python
+if answer.strip().startswith("{"):
+    answer = "I don't have enough information..."  # ❌ Missed arrays, spaced braces
+```
+**Fix Applied:**
+```python
+try:
+    json.loads(answer)
+    answer = "I don't have enough information to answer that question."
+except (json.JSONDecodeError, ValueError):
+    pass  # ✅ Catches all valid JSON including arrays
+```
 
-**Problem:**
+---
 
+### BUG #6: No Result Limit in `retriever_tool` ✅ FIXED
+**File:** `tools.py` | **Was:** 🟢 Low
+
+**Was:**
+```python
+return "\n".join([doc.page_content for doc in docs])  # ❌ No limit, raw content
+```
+**Fix Applied:**
+```python
+docs_limited = docs[:5]
+return "\n".join([f"[{i+1}] {doc.page_content}" for i, doc in enumerate(docs_limited)])  # ✅ Top 5, numbered
+```
+
+---
+
+## 🟡 Open Bugs / Issues
+
+### BUG #4: Generic Exception Handler in Chat Endpoint — OPEN
+**File:** `main.py` L166-168 | **Severity:** 🟡 Medium
+
+**Problem:** All errors from the graph are caught by one bare `except Exception`:
 ```python
 except Exception as e:
     logger.error(f"[{request_id}] Error: {e}", exc_info=True)
     raise HTTPException(status_code=500, detail="Failed to process query")
 ```
+- `IndexError` (missing tool results), `ValueError` (empty messages), LLM timeout — all look the same from the outside
+- Makes debugging in production difficult
 
-Generic exception handler doesn't distinguish between:
-- Missing tool results (returns IndexError)
-- Empty messages (returns ValueError)
-- LLM timeout
-- Graph execution errors
-
-This masks the real issue from debugging.
-
-**Fix:** Add specific exception handling:
-
+**Recommended Fix:**
 ```python
 except IndexError:
-    logger.error(f"[{request_id}] Index error - missing expected message")
+    logger.error(f"[{request_id}] Graph state error — missing expected message")
     raise HTTPException(status_code=500, detail="Invalid graph state")
 except TimeoutError:
-    logger.error(f"[{request_id}] LLM timeout")
+    logger.error(f"[{request_id}] LLM processing timeout")
     raise HTTPException(status_code=504, detail="Processing timeout")
 except Exception as e:
     logger.error(f"[{request_id}] Unexpected error: {e}", exc_info=True)
@@ -125,69 +116,48 @@ except Exception as e:
 
 ---
 
-### BUG #5: Missing Error Handling in `generate_answer` 🟡 MEDIUM
+### BUG #7: `check_ollama_health()` Called Twice at Startup — OPEN
+**File:** `database.py` L53 + `main.py` L60 | **Severity:** 🟢 Low
 
-**File:** [nodes.py](nodes.py#L148-L169)  
-**Severity:** Medium - Can return malformed JSON as real answer
+**Problem:** `check_ollama_health()` is called at module import time in `database.py` (line 53), and then again explicitly in the `lifespan()` function in `main.py` (line 60). This causes two HTTP requests to Ollama on every startup.
+
+**Recommended Fix:** Remove the module-level call in `database.py` and rely solely on `lifespan()`:
+```python
+# database.py — remove this line:
+check_ollama_health()  # ❌ Called again in lifespan already
+```
+
+---
+
+### BUG #8: CORS Open to All Origins — OPEN
+**File:** `main.py` L70 | **Severity:** 🟠 High (for production)
 
 **Problem:**
-
 ```python
-if answer.strip().startswith("{"):
-    answer = "I don't have enough information..."
+allow_origins=["*"],  # ⚠️ Any origin can call this API
 ```
+The existing TODO comment acknowledges this. With API key auth in place, the risk is lower, but it's still a security bad practice.
 
-Only checks if answer starts with `{`. If LLM returns:
-- `[{"key": "value"}]` - starts with `[`, bypasses check
-- `{ "key": "value" }` (with space) - starts with space, also fails
-
-**Fix:** Use try-except for JSON:
-
+**Recommended Fix:**
 ```python
-try:
-    json.loads(answer)
-    # If that succeeded, it's JSON - reject it
-    answer = "I don't have enough information..."
-except ValueError:
-    # Not JSON, safe to use answer
-    pass
+allow_origins=["http://localhost:3000", "https://your-frontend-domain.com"],
 ```
 
 ---
 
-### BUG #6: Inefficient String Joining in `/stats` 🟢 LOW
+## 📊 Bug Summary Table
 
-**File:** [tools.py](tools.py#L6)  
-**Severity:** Low - Performance issue with large results
-
-**Problem:**
-
-```python
-return "\n".join([doc.page_content for doc in docs]) if docs else "No results found"
-```
-
-For 100+ documents, this creates a very long string. Better to limit results or use pagination.
-
-**Fix:**
-
-```python
-docs_limited = docs[:5]  # Limit to top 5 most relevant
-return "\n".join([f"[{i+1}] {doc.page_content}" for i, doc in enumerate(docs_limited)]) if docs_limited else "No results found"
-```
+| Bug # | Severity | Description | Status |
+|-------|----------|-------------|--------|
+| #1 | 🔴 Critical | `validate_input` replaced full message history | ✅ Fixed |
+| #2 | 🔴 Critical | `rewrite_question` dropped all context | ✅ Fixed |
+| #3 | 🟠 High | Unsafe chained `.get()` in `/stats` | ✅ Fixed |
+| #4 | 🟡 Medium | Generic `except Exception` hides error types | 🔴 Open |
+| #5 | 🟡 Medium | `startswith("{")` missed arrays and spaced JSON | ✅ Fixed |
+| #6 | 🟢 Low | No doc limit in `retriever_tool` | ✅ Fixed |
+| #7 | 🟢 Low | `check_ollama_health()` called twice on startup | 🔴 Open |
+| #8 | 🟠 High | CORS `allow_origins=["*"]` in production | 🔴 Open |
 
 ---
 
-## 🛠️ Summary
-
-| Bug # | Severity | Impact | Status |
-|-------|----------|--------|--------|
-| #1 | 🔴 Critical | Message history loss | Needs immediate fix |
-| #2 | 🔴 Critical | Context loss in rewrite | Needs immediate fix |
-| #3 | 🟠 High | /stats endpoint crash | Should fix |
-| #4 | 🟡 Medium | Poor debugging | Nice to have |
-| #5 | 🟡 Medium | JSON detection bug | Should fix |
-| #6 | 🟢 Low | Performance issue | Can defer |
-
----
-
-**Recommendation:** Fix bugs #1-2 immediately before deployment. They break core functionality.
+**3 bugs remain open. None are blocking for development — but #8 must be fixed before public production deployment.**

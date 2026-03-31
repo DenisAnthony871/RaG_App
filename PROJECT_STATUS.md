@@ -1,243 +1,168 @@
-# Project Status Report - Jio RAG Support Agent
+# Project Status Report — Jio RAG Support Agent
 
-**Date:** March 10, 2026  
-**Repository:** DenisAnthony871/RaG_App (main branch)  
-**Status:** ✅ Core Backend Functional | ⚠️ Production Readiness Issues | 🔴 Missing Critical Components
-
----
-
-## 📊 What Has Happened (Recent Work)
-
-### Git History (Last 10 Commits)
-
-```bash
-56f6727 - validator & hallucination update (LATEST)
-73f4f68 - config update tags
-d48ccfc - Merge branch 'main'
-b4118dd - change in autocorrect library
-e401232 - Merge pull request #1 (python-publish.yml)
-510eb40 - Create python-publish.yml (GitHub Actions setup)
-325443d - custom_correction (hardcoded)
-ce10fb4 - update README
-868e708 - add detailed README
-a43a569 - add README (initial)
-```
-
-### Recent Changes
-
-1. ✅ **Validator & Hallucination Updates** - Improved answer validation logic
-2. ✅ **Config Tags Update** - Refined keyword configuration
-3. ✅ **Autocorrect Library** - Fixed spelling correction module
-4. ✅ **Custom Corrections** - Added Jio-specific terminology handling (50+ entries)
-5. ✅ **GitHub Actions** - Python publish workflow configured
-6. ✅ **Environment Template** - Created `.env.example` for onboarding (March 10)
-7. ✅ **Ollama Health Check** - Startup validation added (March 10)
-8. ✅ **Bug Fixes** - Fixed 3 critical bugs in message history & error handling (March 10)
-9. ✅ **Environment Variables Cleanup** - Removed unused gemi_api & lang_gold, clarified LANGCHAIN_API_KEY (March 10)
-
-### Current State Verification
-
-- ✅ **Git Status:** Working tree clean (nothing uncommitted)
-- ✅ **Python Syntax:** All files compile successfully (no syntax errors)
-- ✅ **Environment:** `.env` file exists with API keys configured
-- ✅ **Dependencies:** requirements.txt fully populated (145+ packages)
+**Last Updated:** March 31, 2026
+**Repository:** DenisAnthony871/RaG_App (main branch)
+**Overall Status:** ✅ Backend Fully Functional | ⚠️ Some Open Issues | ❌ No Frontend
 
 ---
 
-## ✅ What's Implemented
+## 📊 Current Implementation Summary
 
-### Backend Core (Complete)
-
-| Component | Status | Details |
-|-----------|--------|---------|
-| FastAPI Server | ✅ | Running on `127.0.0.1:8080` |
-| RAG Pipeline | ✅ | 8-node LangGraph workflow |
-| Vector Database | ✅ | ChromaDB with `nomic-embed-text` embeddings |
-| LLM Integration | ✅ | Ollama + llama3.1 local model |
-| Input Validation | ✅ | Spell correction, harmful keyword filtering |
-| Document Retrieval | ✅ | ChromaDB retriever with k=3 |
-| Document Grading | ✅ | Relevance scoring via JIO_KEYWORDS |
-| Query Rewriting | ✅ | Max 2 rewrites for poor queries |
-| Hallucination Check | ✅ | LLM-based answer grounding validation |
-| Answer Formatting | ✅ | Source attribution & document verification |
-| Logging | ✅ | Structured logging to console |
-| CORS | ✅ | Cross-origin requests allowed |
-| Exception Handling | ✅ | Global error handler with 500 responses |
-
-### API Endpoints (Complete)
-
-- `GET /health` - Health check
-- `GET /stats` - Vector store statistics
-- `POST /chat` - Main chat endpoint with request/response validation
-
-### Configuration & Setup (Complete)
-
-- ✅ Python 3.12+ compatible
-- ✅ Environment variables loaded from `.env`
-- ✅ ChromaDB persists to `./chroma_db_v4/`
-- ✅ LangSmith tracing enabled (`LANGCHAIN_TRACING_V2=true`)
-- ✅ Custom keyword corrections (50+ Jio-specific terms)
-- ✅ Harmful keyword filtering
-
----
-
-## 🔴 What's Pending / Missing
-
-### CRITICAL (Blocks Production Deployment)
-
-| Issue | Impact | Notes |
+| Layer | Status | Notes |
 |-------|--------|-------|
-| ~~No `.env.example`~~ | ✅ Fixed (March 10) | Created `.env.example` template with clear documentation |
-| **No Frontend UI** | 🔴 High | Only API available; unusable without integration |
-| ~~Ollama Availability Check~~ | ✅ Fixed (March 10) | Startup health check added; exits cleanly if Ollama unavailable |
-| **No Persistent Chat History** | 🔴 High | Every conversation lost; no user analytics |
-| **No Docker/Containerization** | 🔴 High | Can't deploy to cloud easily |
-| **No Authentication/Authorization** | 🔴 High | Anyone can call API; no rate limiting |
-
-### IMPORTANT (Should Fix Soon)
-
-| Issue | Impact | Notes |
-|-------|--------|-------|
-| **No Unit/Integration Tests** | 🟡 Medium | No test coverage; risky to refactor |
-| **No API Documentation** | 🟡 Medium | No Swagger/OpenAPI; unclear for integrators |
-| **No Deployment Config** | 🟡 Medium | No Azure/AWS/K8s configs ready |
-| **Missing connection.py implementation** | 🟡 Medium | Referenced in imports but not used |
-| **localhost-only binding** | 🟡 Medium | API not accessible from other machines |
-| **No request caching** | 🟡 Medium | Identical queries hit vector DB every time |
-
-### NICE-TO-HAVE
-
-| Issue | Impact | Notes |
-|-------|--------|-------|
-| **Admin Dashboard** | 🟢 Low | Analytics, conversation replay, model tuning |
-| **Multi-language Support** | 🟢 Low | Current spell checker is English-only |
-| **A/B Testing Framework** | 🟢 Low | Can't measure prompt/model improvements |
-| **Cost Optimization** | 🟢 Low | Unused ASTRA_DB configs in `.env` |
+| FastAPI Backend | ✅ Complete | Runs on `0.0.0.0:8080` |
+| RAG Pipeline (LangGraph) | ✅ Complete | 8-node graph, fully wired |
+| ChromaDB Vector Store | ✅ Complete | `chroma_db_v4`, `nomic-embed-text` embeddings |
+| LLM Integration | ✅ Complete | `llama3.2:3b` via Ollama |
+| Spell Correction | ✅ Complete | SymSpell + 50+ custom Jio corrections |
+| Profanity Filter | ✅ Complete | `better_profanity` library |
+| Harmful Keyword Filter | ✅ Complete | 30+ terms in `config.py` |
+| Input Validation | ✅ Complete | Length check + short allowlist |
+| Intent Detection | ✅ Complete | troubleshooting / billing / informational |
+| Document Grading | ✅ Complete | Keyword overlap scoring (`KEYWORD_THRESHOLD=3`) |
+| Query Rewriting | ✅ Complete | Max 2 rewrites (`MAX_REWRITES=2`) |
+| JSON Answer Guard | ✅ Complete | `json.loads()` try/except, not just `startswith("{")` |
+| Source Attribution | ✅ Complete | Footer appended in `format_answer` |
+| Hallucination Check | ✅ Complete | Keyword overlap (≥5 words) with retrieved context |
+| API Key Auth | ✅ Complete | `X-API-Key` header via `JIO_RAG_API_KEY` env var |
+| SQLite Chat History | ✅ Complete | `chat_history.db`, `chat_history.py` |
+| Conversation CRUD | ✅ Complete | GET / DELETE `/conversations/{id}` endpoints |
+| Ollama Health Check | ✅ Complete | Startup exits cleanly if unavailable |
+| CORS Middleware | ✅ Complete | Open (`*`) — needs locking before production |
+| Global Error Handler | ✅ Complete | `@app.exception_handler(Exception)` → 500 JSON |
+| LangSmith Tracing | ✅ Configured | `LANGCHAIN_TRACING_V2=true` |
+| Swagger UI | ✅ Available | `/docs` endpoint |
 
 ---
 
-## 🚨 Current Issues Found
+## 📁 File-by-File Status
 
-### Issue #1: Unused Dependencies
+### `main.py` ✅ Production-Quality
+- FastAPI app with lifespan context manager
+- `verify_api_key()` with `secrets.compare_digest()` (timing-safe)
+- `ChatRequest` Pydantic model with `field_validator`
+- Conversation history wired: loads history → appends → saves after response
+- 5 endpoints: `/health`, `/stats`, `/chat`, `GET /conversations/{id}`, `DELETE /conversations/{id}`
+- **Known issue:** CORS is `allow_origins=["*"]` — needs scoping for production
 
-**Severity:** 🟡 Medium  
-**Details:**  
+### `nodes.py` ✅ Fully Fixed
+- **BUG #1 (Critical) — FIXED:** `validate_input` now does `messages[-1] = HumanMessage(...)` — no longer replaces entire history
+- **BUG #2 (Critical) — FIXED:** `rewrite_question` now does `messages.append(HumanMessage(...))` — no longer drops context
+- **BUG #5 (Medium) — FIXED:** `generate_answer` uses `json.loads()` try/except for proper JSON detection
+- `SHORT_ALLOWLIST` prevents blocking valid 2-3 char Jio queries ("5g", "sim", etc.)
+- `SKIP_CORRECTION` prevents SymSpell mangling common English words
+- `REFUSAL_PHRASES` prevents source footer from appearing on error messages
 
-- `.env` has ASTRA_DB configuration but code uses ChromaDB only
-- `connection.py` mentioned in workspace but not utilized
-- Suggests incomplete migration or leftover configs
+### `rag_graph.py` ✅ Complete
+- Full 8-node LangGraph pipeline wired
+- `rewrite_question` → `is_fallback` conditional edge (prevents infinite loop)
+- `generate_query_or_respond` always forces tool call (never responds directly)
 
-**Fix:** Clean up unused configs from `.env`:
+### `chains.py` ✅ Complete
+- `rewrite_chain`: prompt → `llama3.2:3b` → `StrOutputParser`
+- `response_model`: bare `ChatOllama` for `generate_answer`
 
-```bash
-ASTRA_DB_API_ENDPOINT = ...     ← Not used, can remove
-ASTRA_DB_TOKEN = ...             ← Not used, can remove
-ASTRA_DB_NAMESPACE = ...         ← Not used, can remove
-astra_vector_langchain = ...     ← Not used, can remove
-```
+### `tools.py` ✅ Fixed (BUG #6)
+- **BUG #6 (Low) — FIXED:** `docs[:5]` limit applied; numbered `[1]...[5]` format
+- Single `retriever_tool` wrapping ChromaDB retriever
 
----
+### `database.py` ✅ Complete
+- `check_ollama_health()` with detailed error messaging and `sys.exit(1)` on failure
+- **Note:** `check_ollama_health()` called at module import time AND in `lifespan()` — runs twice on startup (harmless but redundant)
+- **BUG #3 (High) — FIXED in `main.py`:** `stats` endpoint now uses safe `result.get("ids", []) if result else []`
+- ChromaDB initialized with `nomic-embed-text`; vector count logged on startup
 
-### Issue #2: Environment Configuration
+### `config.py` ✅ Complete
+- `LLM_MODEL = "llama3.2:3b"` (updated from `llama3.1`)
+- `KEYWORD_THRESHOLD = 3` (was 2 in old docs)
+- 50+ `CUSTOM_CORRECTIONS` for Jio terminology
+- 30+ `HARMFUL_KEYWORDS`
+- 22 `JIO_KEYWORDS` for document grading
 
-**Severity:** 🟡 Medium  
-**Details:**  
+### `chat_history.py` ✅ Complete
+- SQLite with `conversations` + `messages` tables
+- Foreign key cascade (`ON DELETE CASCADE`)
+- Index on `conversation_id` for fast lookups
+- Functions: `init_db`, `create_conversation`, `conversation_exists`, `save_message`, `load_history`, `get_conversation_summary`, `delete_conversation`
+- UTC timestamps throughout
 
-- Created `.env.example` with proper template
-- Documented LANGCHAIN_API_KEY & LANGCHAIN_TRACING_V2 
-- Cleaned up unused gemi_api & lang_gold variables
-
-**Status:** ✅ FIXED (March 10)
-
-**Setup Instructions:**
-```bash
-cp .env.example .env
-# Edit .env and add your LangSmith key
-LANGCHAIN_API_KEY=YOUR_LANGSMITH_API_KEY_HERE
-LANGCHAIN_TRACING_V2=true  # Set to false if you don't have a key
-LANGCHAIN_PROJECT=Jio_RAG_Project
-```
-
----
-
-### Issue #3: Ollama Runtime Check
-
-**Severity:** 🔴 High  
-**Details:**  
-
-- API startup now validates Ollama availability
-- Server exits with clear error message if Ollama unavailable  
-- Shows users exactly how to fix the issue
-
-**Status:** ✅ FIXED (March 10)
-
----
-
-## 📈 What's Next (Recommended Priority)
-
-### Phase 1: Unblock Development (This Week)
-
-```bash
-[x] 1. Create .env.example file ✅ (March 10)
-[x] 2. Create .env documentation ✅ (March 10)
-[x] 3. Add Ollama health check on startup ✅ (March 10)
-[ ] 4. Fix localhost binding to 0.0.0.0
-[ ] 5. Remove unused ASTRA_DB configs from .env
-```
-
-### Phase 2: MVP Production Ready (Next 2 Weeks)
-
-```bash
-[ ] 1. Add Docker + docker-compose support
-[ ] 2. Create Swagger/OpenAPI documentation
-[ ] 3. Implement basic authentication (API key)
-[ ] 4. Add simple rate limiting (10 req/min per IP)
-[ ] 5. Add persistent chat history (SQLite)
-[ ] 6. Write 10+ unit tests for core nodes
-```
-
-### Phase 3: Full Production (Weeks 3-4)
-
-```bash
-[ ] 1. Build React frontend UI
-[ ] 2. Deploy to cloud (Azure/AWS)
-[ ] 3. Add analytics dashboard
-[ ] 4. Setup CI/CD pipeline (GitHub Actions)
-[ ] 5. Performance benchmarking
-```
+### `connection.py` ⚠️ Orphaned File
+- Exists in workspace but is **never imported** by any module
+- Appears to be a leftover from an earlier Astra DB migration plan
+- **Decision needed:** Delete it or document its intended purpose
 
 ---
 
-## 🔧 Quick Health Check Commands
+## ⚠️ Open Issues
+
+| # | Severity | Issue | Status |
+|---|----------|-------|--------|
+| A | 🟠 High | `check_ollama_health()` called twice at startup (in module + lifespan) | Open |
+| B | 🟠 High | CORS `allow_origins=["*"]` — open to any origin | Open |
+| C | 🟡 Medium | `connection.py` is orphaned — never imported | Open |
+| D | 🟡 Medium | `BUG #4` from old report — generic `except Exception` in chat endpoint still lumps all errors | Open |
+| E | 🟡 Medium | No rate limiting on API endpoints | Open |
+| F | 🟢 Low | README still shows `llama3.1` — should be `llama3.2:3b` | Open |
+| G | 🟢 Low | `rag.ipynb` / `Untitled-1.ipynb` not version-controlled cleanly (1MB+) | Open |
+
+---
+
+## ❌ What's Missing
+
+| Gap | Priority | Notes |
+|-----|----------|-------|
+| Frontend UI | 🔴 Critical | No user-facing interface exists |
+| Docker / Containerization | 🔴 Critical | Can't deploy without this |
+| Unit & Integration Tests | 🟠 High | Zero test coverage |
+| Rate Limiting | 🟠 High | Any valid API key can spam requests |
+| Deployment Config | 🟡 Medium | No Dockerfile, docker-compose, or IaC |
+| API Guide / Extended Docs | 🟡 Medium | No `API_GUIDE.md` or `DEPLOYMENT.md` |
+
+---
+
+## ✅ Recently Completed (Since Original March 10 Report)
+
+- ✅ **SQLite chat history fully implemented** — `chat_history.py` with full CRUD
+- ✅ **Conversation endpoints added** — `GET` & `DELETE /conversations/{id}`
+- ✅ **API key auth implemented** — `X-API-Key` header, `secrets.compare_digest`
+- ✅ **All 3 critical bugs fixed** — BUG #1, #2 (message history), #5 (JSON detection)
+- ✅ **BUG #3 fixed** — safe vectorstore access in `/stats`
+- ✅ **BUG #6 fixed** — `tools.py` limits to top 5 docs with numbered format
+- ✅ **Model updated** — `llama3.1` → `llama3.2:3b`
+- ✅ **`KEYWORD_THRESHOLD` raised** — from 2 → 3 (reduces false positives)
+- ✅ **`better_profanity` added** — profanity filtering in `validate_input`
+- ✅ **`SHORT_ALLOWLIST`** — prevents over-blocking short valid queries
+
+---
+
+## 🔧 Quick Health Check
 
 ```bash
-# Check Ollama is running
+# 1. Is Ollama running?
 ollama list
 
-# Test API directly
+# 2. Start the API
+python main.py
+
+# 3. Health check (no auth required)
 curl http://127.0.0.1:8080/health
 
-# Check vector store
-curl http://127.0.0.1:8080/stats
+# 4. Stats (auth required)
+curl http://127.0.0.1:8080/stats -H "X-API-Key: YOUR_KEY"
 
-# Test chat endpoint
+# 5. Chat (auth required)
 curl -X POST http://127.0.0.1:8080/chat \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_KEY" \
   -d '{"query": "What is Jio Fiber?"}'
 ```
 
 ---
 
-## 📝 Summary
+## 📝 Overall Assessment
 
-| Metric | Status |
-|--------|--------|
-| Core Backend | ✅ Functional |
-| API Endpoints | ✅ Working |
-| Python Syntax | ✅ Valid |
-| Git Status | ✅ Clean |
-| Production Ready | 🔴 No (5+ blocking issues) |
-| Team Onboarding | ✅ Ready (env template created) |
-| Cloud Deployment | 🔴 Not yet (no Docker) |
-
-**Conclusion:** Backend logic is solid and working. Main gaps are operational/deployment concerns, not code quality.
+**Backend logic is solid and production-quality.** The RAG pipeline, auth, conversation history, and validation are all implemented correctly. The primary blockers to real production deployment are:
+1. No frontend (users can't access the chatbot)
+2. No Docker (devs can't deploy it)
+3. No tests (risky to extend or refactor)
+4. CORS and rate limiting need hardening
