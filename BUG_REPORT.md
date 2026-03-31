@@ -92,6 +92,15 @@ return "\n".join([f"[{i+1}] {doc.page_content}" for i, doc in enumerate(docs_lim
 
 ---
 
+### BUG #7: `check_ollama_health()` Called Twice at Startup — FIXED
+**File:** `database.py` | **Was:** Low
+
+**Problem:** `check_ollama_health()` was called at module import time in `database.py`, and again inside `lifespan()` in `main.py`. This caused two HTTP requests to Ollama on every startup and would also fire unexpectedly during any import-time test setup.
+
+**Fix Applied:** Removed the module-level call from `database.py`. The single canonical call site is now `lifespan()` in `main.py`. A comment in `database.py` explains why the call is intentionally absent.
+
+---
+
 ## Open Bugs
 
 ### BUG #4: Generic Exception Handler in Chat Endpoint — OPEN
@@ -117,19 +126,6 @@ except TimeoutError:
 except Exception as e:
     logger.error(f"[{request_id}] Unexpected error: {e}", exc_info=True)
     raise HTTPException(status_code=500, detail="Internal error")
-```
-
----
-
-### BUG #7: `check_ollama_health()` Called Twice at Startup — OPEN
-**File:** `database.py` L53 + `main.py` L60 | **Severity:** Low
-
-**Problem:** `check_ollama_health()` is called at module import time in `database.py` (line 53), and then again explicitly in `lifespan()` in `main.py` (line 60). This results in two HTTP requests to Ollama on every startup.
-
-**Recommended Fix:** Remove the module-level call in `database.py` and rely solely on `lifespan()`:
-```python
-# database.py — remove this line:
-check_ollama_health()
 ```
 
 ---
@@ -161,9 +157,9 @@ allow_origins=["http://localhost:3000", "https://your-frontend-domain.com"],
 | #4 | Medium | Generic `except Exception` hides error types | Open |
 | #5 | Medium | `startswith("{")` missed arrays and spaced JSON | Fixed |
 | #6 | Low | No doc limit in `retriever_tool` | Fixed |
-| #7 | Low | `check_ollama_health()` called twice on startup | Open |
+| #7 | Low | `check_ollama_health()` called twice on startup | Fixed |
 | #8 | High | CORS `allow_origins=["*"]` — open to all origins | Open |
 
 ---
 
-3 bugs remain open. None block development. BUG #8 must be resolved before any public production deployment.
+2 bugs remain open. BUG #8 must be resolved before any public production deployment. BUG #4 is low-urgency but improves debuggability.

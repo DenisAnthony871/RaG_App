@@ -42,15 +42,16 @@ def check_ollama_health(timeout=5):
             f"\n\nHow to fix:"
             f"\n1. Download Ollama from https://ollama.com"
             f"\n2. Start Ollama: ollama serve"
-            f"\n3. Pull the required model: ollama pull llama3.1"
+            f"\n3. Pull the required model: ollama pull llama3.2:3b"
             f"\n4. Then restart this application"
             f"\n\nError details: {str(e)}"
         )
         sys.exit(1)
 
 
-# Verify Ollama is running BEFORE initializing embeddings
-check_ollama_health()
+# Ollama health check is handled by lifespan() in main.py before this module's
+# objects are used. Do not call check_ollama_health() here — it would run twice
+# on startup and also fire during any import-time test setup.
 
 embeddings = OllamaEmbeddings(model=EMBEDDING_MODEL)
 

@@ -1,6 +1,6 @@
 from langgraph.graph import StateGraph, START, END, MessagesState
 from langgraph.prebuilt import ToolNode, tools_condition
-from config import DB_PATH, COLLECTION_NAME  # removed: from database import vectorstore
+
 from tools import tools
 from nodes import (
     validate_input,
