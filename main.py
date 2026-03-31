@@ -26,6 +26,7 @@ from chat_history import (
     load_history,
     get_conversation_summary,
     delete_conversation,
+    log_query,
 )
 import uvicorn
 
@@ -96,6 +97,7 @@ class ChatResponse(BaseModel):
     request_id: str
     conversation_id: str
     answer: str
+    confidence: float
     status: str = "success"
     response_time_ms: float
 
@@ -147,19 +149,42 @@ def chat(request: ChatRequest):
     messages.append(HumanMessage(content=request.query))
 
     try:
-        result = graph.invoke({"messages": messages})
-        answer = result["messages"][-1].content
+        result = graph.invoke({"messages": messages, "rewrite_count": 0, "confidence": 0.0})
+
+        result_messages = result.get("messages", []) if isinstance(result, dict) else []
+        if not result_messages:
+            logger.error(f"[{request_id}] graph.invoke returned no messages — result keys: {list(result.keys()) if isinstance(result, dict) else type(result)}")
+            raise ValueError("Graph returned empty messages list")
+
+        answer = result_messages[-1].content
+        confidence = result.get("confidence", 0.0)
         response_time = (time.time() - start) * 1000
 
         # Persist both turns
         save_message(conversation_id, "human", request.query)
         save_message(conversation_id, "ai", answer)
 
-        logger.info(f"[{request_id}] Done in {response_time:.2f}ms")
+        try:
+            log_query(
+                conversation_id=conversation_id,
+                request_id=request_id,
+                query=request.query,
+                response_time_ms=round(response_time, 2),
+                confidence=confidence,
+                rewrite_count=result.get("rewrite_count", 0),
+            )
+        except Exception as log_err:
+            logger.error(
+                f"[{request_id}] log_query failed for conversation {conversation_id}: {log_err}",
+                exc_info=True,
+            )
+
+        logger.info(f"[{request_id}] Done in {response_time:.2f}ms | Confidence: {confidence}")
         return ChatResponse(
             request_id=request_id,
             conversation_id=conversation_id,
             answer=answer,
+            confidence=confidence,
             status="success",
             response_time_ms=round(response_time, 2)
         )

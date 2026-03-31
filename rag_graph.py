@@ -1,8 +1,9 @@
-from langgraph.graph import StateGraph, START, END, MessagesState
+from langgraph.graph import StateGraph, START, END
 from langgraph.prebuilt import ToolNode, tools_condition
 
 from tools import tools
 from nodes import (
+    JioState,
     validate_input,
     after_validate,
     enrich_context,
@@ -11,11 +12,12 @@ from nodes import (
     grade_documents,
     generate_answer,
     format_answer,
+    check_hallucination,
     hallucination_router,
     is_fallback,
 )
 
-workflow = StateGraph(MessagesState)
+workflow = StateGraph(JioState)
 
 workflow.add_node("validate_input", validate_input)
 workflow.add_node("enrich_context", enrich_context)
@@ -24,6 +26,7 @@ workflow.add_node("retrieve", ToolNode(tools))
 workflow.add_node("rewrite_question", rewrite_question)
 workflow.add_node("generate_answer", generate_answer)
 workflow.add_node("format_answer", format_answer)
+workflow.add_node("check_hallucination", check_hallucination)
 
 workflow.add_edge(START, "validate_input")
 workflow.add_conditional_edges(
@@ -49,9 +52,10 @@ workflow.add_conditional_edges(
 )
 
 workflow.add_edge("generate_answer", "format_answer")
+workflow.add_edge("format_answer", "check_hallucination")
 
 workflow.add_conditional_edges(
-    "format_answer",
+    "check_hallucination",
     hallucination_router,
     {
         "end": END,

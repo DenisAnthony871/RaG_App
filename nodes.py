@@ -1,12 +1,21 @@
 import uuid
 import logging
 import importlib.resources
+from typing import Annotated
+from typing_extensions import TypedDict, NotRequired
 from langchain_core.messages import HumanMessage, AIMessage
-from langgraph.graph import MessagesState
+from langgraph.graph.message import add_messages
 from symspellpy import SymSpell, Verbosity
 from better_profanity import profanity
 from config import HARMFUL_KEYWORDS, JIO_KEYWORDS, KEYWORD_THRESHOLD, MAX_REWRITES, CUSTOM_CORRECTIONS
 from chains import rewrite_chain, response_model
+
+
+# ============= CUSTOM GRAPH STATE =============
+class JioState(TypedDict):
+    messages: Annotated[list, add_messages]
+    confidence: NotRequired[float]    # 0.9 = high, 0.6 = medium, 0.3 = low; absent on first pass
+    rewrite_count: NotRequired[int]   # absent until first rewrite; treated as 0 via .get()
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +67,7 @@ def correct_spelling(text: str) -> str:
 # Short terms that are valid Jio queries despite being under the length threshold
 SHORT_ALLOWLIST = {"5g", "jio", "wifi", "jiotv", "sim", "4g", "volte"}
 
-def validate_input(state: MessagesState):
+def validate_input(state: JioState):
     messages = state["messages"]
     user_msg = messages[-1].content if messages else ""
     cleaned = user_msg.strip()
@@ -87,7 +96,7 @@ def validate_input(state: MessagesState):
     return {"messages": messages}
 
 
-def after_validate(state: MessagesState) -> str:
+def after_validate(state: JioState) -> str:
     """Route to end if validate_input blocked the message, otherwise continue"""
     last_msg = state["messages"][-1]
     if last_msg.type == "ai":
@@ -95,7 +104,7 @@ def after_validate(state: MessagesState) -> str:
     return "continue"
 
 
-def is_fallback(state: MessagesState) -> str:
+def is_fallback(state: JioState) -> str:
     """Check if rewrite_question returned a fallback message or a real rewrite"""
     last_msg = state["messages"][-1]
     if last_msg.type == "ai":
@@ -105,7 +114,7 @@ def is_fallback(state: MessagesState) -> str:
 
 
 # ============= NODE 2: ENRICH CONTEXT =============
-def enrich_context(state: MessagesState):
+def enrich_context(state: JioState):
     messages = state["messages"]
     question = next((msg.content for msg in messages if msg.type == "human"), "")
 
@@ -122,7 +131,7 @@ def enrich_context(state: MessagesState):
 
 
 # ============= NODE 3: GENERATE QUERY OR RESPOND =============
-def generate_query_or_respond(state: MessagesState):
+def generate_query_or_respond(state: JioState):
     messages = state["messages"]
     question = next(
         (msg.content for msg in reversed(messages) if msg.type == "human"), ""
@@ -143,14 +152,14 @@ def generate_query_or_respond(state: MessagesState):
 
 
 # ============= NODE 4: REWRITE QUESTION =============
-def rewrite_question(state: MessagesState):
+def rewrite_question(state: JioState):
     messages = state["messages"]
 
-    rewrite_count = sum(1 for msg in messages if msg.type == "human") - 1
+    rewrite_count = state.get("rewrite_count", 0)
 
     if rewrite_count >= MAX_REWRITES:
         logger.warning("Max rewrites reached, returning fallback answer")
-        return {"messages": [AIMessage(content="I'm sorry, I couldn't find relevant information. Please try rephrasing or contact Jio support directly.")]}
+        return {"messages": [AIMessage(content="I'm sorry, I couldn't find relevant information. Please try rephrasing your question or reach out to Jio support directly:\n\n📞 Toll-Free: 1800-889-9999\n📱 MyJio App: Available on Play Store and App Store\n🌐 Self Care: jio.com/selfcare")]}
 
     question = next(
         (msg.content for msg in reversed(messages) if msg.type == "human"), ""
@@ -164,12 +173,13 @@ def rewrite_question(state: MessagesState):
     logger.info(f"Rewrite #{rewrite_count} | Original: {question[:80]}")
     logger.info(f"Rewritten: {better_question}")
 
-    messages.append(HumanMessage(content=better_question))
-    return {"messages": messages}
+    # Return only the new message — add_messages reducer appends it to existing history.
+    # Avoids mutating the state list in place before returning.
+    return {"messages": [HumanMessage(content=better_question)], "rewrite_count": rewrite_count + 1}
 
 
 # ============= GRADE DOCUMENTS (ROUTER) =============
-def grade_documents(state: MessagesState) -> str:
+def grade_documents(state: JioState) -> str:
     messages = state["messages"]
     tool_result = next((msg.content for msg in reversed(messages) if msg.type == "tool"), "")
 
@@ -189,7 +199,7 @@ def grade_documents(state: MessagesState) -> str:
 
 
 # ============= NODE 5: GENERATE ANSWER =============
-def generate_answer(state: MessagesState):
+def generate_answer(state: JioState):
     messages = state["messages"]
 
     question = next(
@@ -242,7 +252,7 @@ REFUSAL_PHRASES = [
     "not able to help",
 ]
 
-def format_answer(state: MessagesState):
+def format_answer(state: JioState):
     messages = state["messages"]
     answer_msg = messages[-1].content if messages else ""
 
@@ -259,23 +269,50 @@ def format_answer(state: MessagesState):
     return {"messages": [AIMessage(content=formatted)]}
 
 
-# ============= HALLUCINATION ROUTER =============
-def hallucination_router(state: MessagesState) -> str:
+# ============= HALLUCINATION CHECK (NODE) =============
+# Computes and writes confidence score to state via proper return value.
+# Must be a node, not a router — routers cannot update state in LangGraph.
+def check_hallucination(state: JioState) -> dict:
     messages = state["messages"]
     answer = messages[-1].content if messages else ""
+    context = next((msg.content for msg in reversed(messages) if msg.type == "tool"), "")
+    rewrite_count = state.get("rewrite_count", 0)
+
+    if not context or "No results found" in context:
+        return {"confidence": 0.0}
+
+    context_words = set(context.lower().split())
+    answer_words = set(answer.lower().split())
+    overlap = len(answer_words & context_words)
+
+    if overlap >= 15 and rewrite_count == 0:
+        confidence = 0.9
+    elif overlap >= 8 and rewrite_count <= 1:
+        confidence = 0.6
+    else:
+        confidence = 0.3
+
+    logger.info(f"Confidence: {confidence} | Overlap: {overlap} words | Rewrites: {rewrite_count}")
+    return {"confidence": confidence}
+
+
+# ============= HALLUCINATION ROUTER =============
+# Pure routing function — reads state only, returns a routing string.
+# Confidence scoring is handled upstream in check_hallucination node.
+def hallucination_router(state: JioState) -> str:
+    messages = state["messages"]
     context = next((msg.content for msg in reversed(messages) if msg.type == "tool"), "")
 
     if not context or "No results found" in context:
         return "end"
 
-    # Keyword overlap check — fast, deterministic, no LLM call
+    answer = messages[-1].content if messages else ""
     context_words = set(context.lower().split())
     answer_words = set(answer.lower().split())
-    overlap = answer_words & context_words
+    overlap = len(answer_words & context_words)
 
-    if len(overlap) < 5:
-        logger.warning(f"Low overlap ({len(overlap)} words), answer may not be grounded")
+    if overlap < 5:
+        logger.warning(f"Low overlap ({overlap} words), answer may not be grounded")
         return "rewrite_question"
 
-    logger.info(f"Answer grounded — {len(overlap)} overlapping words with context")
     return "end"

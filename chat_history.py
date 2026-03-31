@@ -43,6 +43,18 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_messages_conversation_id
             ON messages(conversation_id)
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS query_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                conversation_id TEXT NOT NULL,
+                request_id TEXT NOT NULL,
+                query TEXT NOT NULL,
+                response_time_ms REAL NOT NULL,
+                confidence REAL NOT NULL,
+                rewrite_count INTEGER NOT NULL,
+                timestamp TEXT NOT NULL
+            )
+        """)
         conn.commit()
     logger.info("Chat history database initialized")
 
@@ -137,3 +149,23 @@ def delete_conversation(conversation_id: str) -> bool:
         )
         conn.commit()
     return convo_result.rowcount > 0
+
+
+def log_query(
+    conversation_id: str,
+    request_id: str,
+    query: str,
+    response_time_ms: float,
+    confidence: float,
+    rewrite_count: int,
+):
+    """Persist query metadata for analytics and debugging"""
+    now = datetime.now(timezone.utc).isoformat()
+    with get_connection() as conn:
+        conn.execute(
+            """INSERT INTO query_logs
+               (conversation_id, request_id, query, response_time_ms, confidence, rewrite_count, timestamp)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (conversation_id, request_id, query, response_time_ms, confidence, rewrite_count, now)
+        )
+        conn.commit()

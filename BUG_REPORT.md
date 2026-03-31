@@ -35,7 +35,7 @@ return {"messages": [HumanMessage(content=better_question)]}  # Dropped all cont
 **Fix Applied:**
 ```python
 messages.append(HumanMessage(content=better_question))
-return {"messages": messages}  # Appends rewritten question
+return {"messages": messages, "rewrite_count": rewrite_count + 1}
 ```
 
 ---
@@ -51,7 +51,7 @@ count = len(vectorstore.get().get("ids", []))  # Crashes if .get() returns None
 **Fix Applied:**
 ```python
 result = vectorstore.get()
-count = len(result.get("ids", []) if result else [])  # Safe null check
+count = len(result.get("ids", []) if result else [])
 ```
 
 ---
@@ -61,8 +61,7 @@ count = len(result.get("ids", []) if result else [])  # Safe null check
 
 **Problem:**
 ```python
-if answer.strip().startswith("{"):
-    answer = "I don't have enough information..."  # Missed arrays, spaced braces
+if answer.strip().startswith("{"):  # Missed arrays, spaced braces
 ```
 
 **Fix Applied:**
@@ -71,7 +70,7 @@ try:
     json.loads(answer)
     answer = "I don't have enough information to answer that question."
 except (json.JSONDecodeError, ValueError):
-    pass  # Catches all valid JSON including arrays
+    pass
 ```
 
 ---
@@ -79,15 +78,10 @@ except (json.JSONDecodeError, ValueError):
 ### BUG #6: No Result Limit in `retriever_tool` — FIXED
 **File:** `tools.py` | **Was:** Low
 
-**Problem:**
-```python
-return "\n".join([doc.page_content for doc in docs])  # No limit, raw content
-```
-
 **Fix Applied:**
 ```python
 docs_limited = docs[:5]
-return "\n".join([f"[{i+1}] {doc.page_content}" for i, doc in enumerate(docs_limited)])  # Top 5, numbered
+return "\n".join([f"[{i+1}] {doc.page_content}" for i, doc in enumerate(docs_limited)])
 ```
 
 ---
@@ -95,33 +89,67 @@ return "\n".join([f"[{i+1}] {doc.page_content}" for i, doc in enumerate(docs_lim
 ### BUG #7: `check_ollama_health()` Called Twice at Startup — FIXED
 **File:** `database.py` | **Was:** Low
 
-**Problem:** `check_ollama_health()` was called at module import time in `database.py`, and again inside `lifespan()` in `main.py`. This caused two HTTP requests to Ollama on every startup and would also fire unexpectedly during any import-time test setup.
+**Problem:** Called at module import time in `database.py` and again in `lifespan()` in `main.py`. Two HTTP requests to Ollama on every startup; also fired during import-time test setup.
 
-**Fix Applied:** Removed the module-level call from `database.py`. The single canonical call site is now `lifespan()` in `main.py`. A comment in `database.py` explains why the call is intentionally absent.
+**Fix Applied:** Module-level call removed from `database.py`. Single canonical call site is `lifespan()` in `main.py`. Comment in `database.py` explains absence.
+
+---
+
+### BUG #9: State Mutation in Conditional Edge Router — FIXED
+**File:** `nodes.py` | **Was:** High
+
+**Problem:** `hallucination_router` was a conditional edge routing function that directly mutated state:
+```python
+state["confidence"] = confidence  # Silently fails — routers cannot update state in LangGraph
+```
+Routers must return a string. State updates must come from node return values. Confidence was never actually written to the result that `main.py` reads.
+
+**Fix Applied:** Split into two separate functions:
+
+1. `check_hallucination(state: JioState) -> dict` — registered as a node, computes confidence and returns `{"confidence": confidence}` as a proper state update.
+2. `hallucination_router(state: JioState) -> str` — pure router, reads state only, returns `"end"` or `"rewrite_question"`.
+
+`rag_graph.py` updated:
+```
+format_answer -> check_hallucination (node) -> hallucination_router (conditional edge)
+```
+
+---
+
+### BUG #10: `rewrite_count` Derived from Message Count — FIXED
+**File:** `nodes.py` | **Was:** Medium
+
+**Problem:**
+```python
+rewrite_count = sum(1 for msg in messages if msg.type == "human") - 1
+```
+Counted human messages in the list to infer rewrite count — fragile, breaks when conversation history is loaded (prior human messages from SQLite inflate the count).
+
+**Fix Applied:** `rewrite_count` is now an explicit field in `JioState`, initialised to `0` in `graph.invoke`, incremented by `rewrite_question` on each rewrite:
+```python
+rewrite_count = state.get("rewrite_count", 0)
+...
+return {"messages": messages, "rewrite_count": rewrite_count + 1}
+```
 
 ---
 
 ## Open Bugs
 
 ### BUG #4: Generic Exception Handler in Chat Endpoint — OPEN
-**File:** `main.py` L166-168 | **Severity:** Medium
+**File:** `main.py` | **Severity:** Medium
 
-**Problem:** All errors from the graph are caught by a single bare `except Exception`:
+**Problem:** All graph errors produce the same HTTP 500:
 ```python
 except Exception as e:
-    logger.error(f"[{request_id}] Error: {e}", exc_info=True)
     raise HTTPException(status_code=500, detail="Failed to process query")
 ```
-
-`IndexError` (missing tool results), `ValueError` (empty messages), and LLM timeout all produce the same HTTP 500 response, making production debugging difficult.
 
 **Recommended Fix:**
 ```python
 except IndexError:
-    logger.error(f"[{request_id}] Graph state error — missing expected message")
     raise HTTPException(status_code=500, detail="Invalid graph state")
 except TimeoutError:
-    logger.error(f"[{request_id}] LLM processing timeout")
     raise HTTPException(status_code=504, detail="Processing timeout")
 except Exception as e:
     logger.error(f"[{request_id}] Unexpected error: {e}", exc_info=True)
@@ -131,14 +159,12 @@ except Exception as e:
 ---
 
 ### BUG #8: CORS Open to All Origins — OPEN
-**File:** `main.py` L70 | **Severity:** High (for production)
+**File:** `main.py` | **Severity:** High (for production)
 
 **Problem:**
 ```python
 allow_origins=["*"],  # Any origin can call this API
 ```
-
-An existing TODO comment acknowledges this. With API key auth in place the risk is reduced, but it remains a security issue for any public deployment.
 
 **Recommended Fix:**
 ```python
@@ -159,7 +185,9 @@ allow_origins=["http://localhost:3000", "https://your-frontend-domain.com"],
 | #6 | Low | No doc limit in `retriever_tool` | Fixed |
 | #7 | Low | `check_ollama_health()` called twice on startup | Fixed |
 | #8 | High | CORS `allow_origins=["*"]` — open to all origins | Open |
+| #9 | High | Router mutated state directly — confidence never persisted | Fixed |
+| #10 | Medium | `rewrite_count` inferred from message count (broke with history) | Fixed |
 
 ---
 
-2 bugs remain open. BUG #8 must be resolved before any public production deployment. BUG #4 is low-urgency but improves debuggability.
+2 bugs remain open. BUG #8 must be resolved before any public production deployment. BUG #4 is low urgency but improves debuggability.

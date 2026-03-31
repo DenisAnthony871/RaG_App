@@ -2,7 +2,20 @@
 
 **Last Updated:** March 31, 2026
 **Repository:** DenisAnthony871/RaG_App (main branch)
-**Overall Status:** Backend Fully Functional | Some Open Issues | No Frontend
+**Overall Status:** Backend Fully Functional | Live-Tested | No Frontend
+
+---
+
+## Live Test Confirmation (March 31, 2026)
+
+The following was confirmed from the running uvicorn process:
+
+- Ollama health check passed on startup
+- `chat_history.db` initialized (all 3 tables created)
+- POST /chat returned HTTP 200 with confidence score logged: `Confidence: 0.6 | Overlap: 5 words | Rewrites: 0`
+- Full pipeline executed: spell correction, intent detection, retrieval, grading, answer generation, hallucination check
+- `uvicorn main:app --reload` (port 8000) confirmed working
+- `python main.py` binds to `0.0.0.0:8080` per `uvicorn.run()` config
 
 ---
 
@@ -10,8 +23,10 @@
 
 | Layer | Status | Notes |
 |-------|--------|-------|
-| FastAPI Backend | Complete | Runs on `0.0.0.0:8080` |
-| RAG Pipeline (LangGraph) | Complete | 8-node graph, fully wired |
+| FastAPI Backend | Complete | `python main.py` runs on `0.0.0.0:8080` |
+| RAG Pipeline (LangGraph) | Complete | 9-node graph with `JioState` custom state |
+| Custom Graph State | Complete | `JioState` — carries `messages`, `confidence`, `rewrite_count` |
+| Confidence Scoring | Complete | 0.9 / 0.6 / 0.3 based on word overlap and rewrite count |
 | ChromaDB Vector Store | Complete | `chroma_db_v4`, `nomic-embed-text` embeddings |
 | LLM Integration | Complete | `llama3.2:3b` via Ollama |
 | Spell Correction | Complete | SymSpell + 50+ custom Jio corrections |
@@ -20,16 +35,18 @@
 | Input Validation | Complete | Length check + short allowlist |
 | Intent Detection | Complete | troubleshooting / billing / informational |
 | Document Grading | Complete | Keyword overlap scoring (`KEYWORD_THRESHOLD=3`) |
-| Query Rewriting | Complete | Max 2 rewrites (`MAX_REWRITES=2`) |
-| JSON Answer Guard | Complete | `json.loads()` try/except, not just `startswith("{")` |
+| Query Rewriting | Complete | Explicit `rewrite_count` in state, max 2 rewrites |
+| Fallback Message | Complete | Includes Jio toll-free, MyJio App, self-care URL |
+| JSON Answer Guard | Complete | `json.loads()` try/except |
 | Source Attribution | Complete | Footer appended in `format_answer` |
-| Hallucination Check | Complete | Keyword overlap (>= 5 words) with retrieved context |
+| Hallucination Check | Complete | Split into `check_hallucination` node + `hallucination_router` |
 | API Key Auth | Complete | `X-API-Key` header via `JIO_RAG_API_KEY` env var |
-| SQLite Chat History | Complete | `chat_history.db`, `chat_history.py` |
+| SQLite Chat History | Complete | `conversations` + `messages` + `query_logs` tables |
+| Query Analytics Logging | Complete | `log_query()` records every request with confidence + timing |
 | Conversation CRUD | Complete | GET / DELETE `/conversations/{id}` endpoints |
-| Ollama Health Check | Complete | Startup exits cleanly if unavailable |
+| Ollama Health Check | Complete | Startup exits cleanly if unavailable (single call in `lifespan`) |
 | CORS Middleware | Complete | Open (`*`) — needs locking before production |
-| Global Error Handler | Complete | `@app.exception_handler(Exception)` returns 500 JSON |
+| Global Error Handler | Complete | Returns 500 JSON |
 | LangSmith Tracing | Configured | `LANGCHAIN_TRACING_V2=true` |
 | Swagger UI | Available | `/docs` endpoint |
 
@@ -38,59 +55,52 @@
 ## File-by-File Status
 
 ### `main.py` — Production-Quality
-- FastAPI app with lifespan context manager
-- `verify_api_key()` with `secrets.compare_digest()` (timing-safe)
-- `ChatRequest` Pydantic model with `field_validator`
-- Conversation history wired: loads history, appends, saves after response
+- `ChatResponse` model includes `confidence: float`
+- `graph.invoke` passes full initial `JioState`: `{"messages": ..., "rewrite_count": 0, "confidence": 0.0}`
+- `log_query()` called after every successful response — persists to `query_logs` table
 - 5 endpoints: `/health`, `/stats`, `/chat`, `GET /conversations/{id}`, `DELETE /conversations/{id}`
-- Known issue: CORS is `allow_origins=["*"]` — needs scoping for production
+- Known issue: CORS `allow_origins=["*"]` — open to any origin
 
-### `nodes.py` — Fully Fixed
-- BUG #1 (Critical) — FIXED: `validate_input` now does `messages[-1] = HumanMessage(...)` — no longer replaces entire history
-- BUG #2 (Critical) — FIXED: `rewrite_question` now does `messages.append(HumanMessage(...))` — no longer drops context
-- BUG #5 (Medium) — FIXED: `generate_answer` uses `json.loads()` try/except for proper JSON detection
-- `SHORT_ALLOWLIST` prevents blocking valid short Jio queries ("5g", "sim", etc.)
-- `SKIP_CORRECTION` prevents SymSpell mangling common English words
-- `REFUSAL_PHRASES` prevents source footer from appearing on error messages
+### `nodes.py` — Complete + Live-Tested
+- `JioState(TypedDict)` defined with `messages`, `confidence`, `rewrite_count`
+- All 9 function signatures use `JioState` — `MessagesState` fully removed
+- `rewrite_count` read from `state.get("rewrite_count", 0)` and incremented on each rewrite
+- `check_hallucination` — proper node that returns `{"confidence": ...}` via state return
+- `hallucination_router` — pure router, reads state only, returns routing string
+- Fallback message includes Jio support contacts (toll-free, MyJio App, self-care)
 
 ### `rag_graph.py` — Complete
-- Full 8-node LangGraph pipeline wired
-- `rewrite_question` uses `is_fallback` conditional edge (prevents infinite loop)
-- `generate_query_or_respond` always forces tool call, never responds directly
-
-### `chains.py` — Complete
-- `rewrite_chain`: prompt -> `llama3.2:3b` -> `StrOutputParser`
-- `response_model`: bare `ChatOllama` instance for `generate_answer`
-
-### `tools.py` — Fixed (BUG #6)
-- BUG #6 (Low) — FIXED: `docs[:5]` limit applied with numbered `[1]...[5]` format
-- Single `retriever_tool` wrapping ChromaDB retriever
-
-### `database.py` — Complete
-- `check_ollama_health()` with detailed error messaging and `sys.exit(1)` on failure
-- Note: `check_ollama_health()` called at module import time AND in `lifespan()` — runs twice on startup (harmless but redundant)
-- BUG #3 (High) — FIXED in `main.py`: `/stats` endpoint uses safe `result.get("ids", []) if result else []`
-- ChromaDB initialized with `nomic-embed-text`; vector count logged on startup
-
-### `config.py` — Complete
-- `LLM_MODEL = "llama3.2:3b"` (updated from `llama3.1`)
-- `KEYWORD_THRESHOLD = 3` (was 2 in earlier version)
-- 50+ `CUSTOM_CORRECTIONS` for Jio terminology
-- 30+ `HARMFUL_KEYWORDS`
-- 22 `JIO_KEYWORDS` for document grading
+- 9-node graph: validate, enrich, query/respond, retrieve, rewrite, generate, format, check_hallucination, (router)
+- `StateGraph(JioState)` — custom state throughout
+- `format_answer` edges to `check_hallucination` (node) then `hallucination_router` (conditional edge)
+- `MessagesState` fully removed
 
 ### `chat_history.py` — Complete
-- SQLite with `conversations` + `messages` tables
-- Foreign key cascade (`ON DELETE CASCADE`)
-- Index on `conversation_id` for fast lookups
-- Functions: `init_db`, `create_conversation`, `conversation_exists`, `save_message`, `load_history`, `get_conversation_summary`, `delete_conversation`
-- UTC timestamps throughout
+- 3 tables: `conversations`, `messages`, `query_logs`
+- `query_logs` schema: `conversation_id`, `request_id`, `query`, `response_time_ms`, `confidence`, `rewrite_count`, `timestamp`
+- `log_query()` function inserts one row per request
+- No FK from `query_logs` to `conversations` — logs survive conversation deletion
 
-### `connection.py` — Orphaned File
-- Exists in workspace but is never imported by any module
-- Appears to be a leftover from an earlier Astra DB migration plan
-- Decision needed: delete it or document its intended purpose
-- Currently excluded from git via `.gitignore`
+### `database.py` — Complete
+- Module-level `check_ollama_health()` call removed (was BUG #7) — lifespan only
+- Error message correctly references `llama3.2:3b`
+
+### `rag_graph.py` — Complete
+- Dead imports `DB_PATH`, `COLLECTION_NAME` from config removed
+- `python-publish.yml` workflow deleted
+
+### `config.py` — Complete
+- `LLM_MODEL = "llama3.2:3b"`
+- `KEYWORD_THRESHOLD = 3`
+
+### `chains.py` — Complete
+- `rewrite_chain` and `response_model` using `llama3.2:3b`
+
+### `tools.py` — Complete
+- `docs[:5]` limit with numbered `[1]...[5]` format
+
+### `connection.py` — Orphaned
+- Never imported. Excluded from git via `.gitignore`. Delete or document.
 
 ---
 
@@ -98,13 +108,10 @@
 
 | # | Severity | Issue | Status |
 |---|----------|-------|--------|
-| A | High | `check_ollama_health()` called twice at startup (module import + lifespan) | Open |
-| B | High | CORS `allow_origins=["*"]` — open to any origin | Open |
-| C | Medium | `connection.py` is orphaned — never imported | Open |
-| D | Medium | Generic `except Exception` in chat endpoint lumps all error types together | Open |
-| E | Medium | No rate limiting on API endpoints | Open |
-| F | Low | README still shows `llama3.1` in one place — should be `llama3.2:3b` | Fixed |
-| G | Low | `rag.ipynb` / `Untitled-1.ipynb` not version-controlled cleanly (1MB+) | Open |
+| A | High | CORS `allow_origins=["*"]` — open to any origin | Open |
+| B | Medium | Generic `except Exception` in chat endpoint (BUG #4) | Open |
+| C | Medium | No rate limiting on API endpoints | Open |
+| D | Low | `connection.py` orphaned — never imported | Open |
 
 ---
 
@@ -117,41 +124,41 @@
 | Unit and Integration Tests | High | Zero test coverage |
 | Rate Limiting | High | Any valid API key can spam requests |
 | Deployment Config | Medium | No Dockerfile, docker-compose, or IaC |
-| Extended API Documentation | Medium | No `API_GUIDE.md` or `DEPLOYMENT.md` |
 
 ---
 
-## Recently Completed (Since Original March 10 Report)
+## Recently Completed (Since Last MD Update)
 
-- SQLite chat history fully implemented (`chat_history.py` with full CRUD)
-- Conversation endpoints added (`GET` and `DELETE /conversations/{id}`)
-- API key auth implemented (`X-API-Key` header, `secrets.compare_digest`)
-- All 3 critical bugs fixed: BUG #1, #2 (message history), #5 (JSON detection)
-- BUG #3 fixed — safe vectorstore access in `/stats`
-- BUG #6 fixed — `tools.py` limits to top 5 docs with numbered format
-- Model updated: `llama3.1` -> `llama3.2:3b`
-- `KEYWORD_THRESHOLD` raised from 2 to 3 (reduces false positives)
-- `better_profanity` added — profanity filtering in `validate_input`
-- `SHORT_ALLOWLIST` prevents over-blocking short valid queries
+- `JioState` custom TypedDict graph state — `messages`, `confidence`, `rewrite_count`
+- `check_hallucination` node — correct LangGraph pattern for state updates (not router mutation)
+- `hallucination_router` refactored to pure routing function (no state mutation)
+- `rag_graph.py` wired: `format_answer` -> `check_hallucination` -> `hallucination_router` (conditional)
+- `ChatResponse` includes `confidence: float` field
+- `graph.invoke` initialises with explicit `rewrite_count=0`, `confidence=0.0`
+- `query_logs` table added to `chat_history.db`
+- `log_query()` called after every successful request — persists timing, confidence, rewrite count
+- Fallback message updated with Jio support contacts
+- BUG #7 fixed — `check_ollama_health()` called once only (lifespan)
+- Dead imports removed from `rag_graph.py`
+- `python-publish.yml` GitHub Actions workflow deleted
+- `.vscode/settings.json` test discovery path fixed to `.` with pytest enabled
+- `database.py` error message updated to `llama3.2:3b`
 
 ---
 
 ## Quick Health Check
 
 ```bash
-# 1. Is Ollama running?
-ollama list
-
-# 2. Start the API
+# Start API (binds to 0.0.0.0:8080)
 python main.py
 
-# 3. Health check (no auth required)
+# Or with auto-reload during development (binds to 127.0.0.1:8000)
+uvicorn main:app --reload
+
+# Health check (no auth)
 curl http://127.0.0.1:8080/health
 
-# 4. Stats (auth required)
-curl http://127.0.0.1:8080/stats -H "X-API-Key: YOUR_KEY"
-
-# 5. Chat (auth required)
+# Chat with confidence in response
 curl -X POST http://127.0.0.1:8080/chat \
   -H "Content-Type: application/json" \
   -H "X-API-Key: YOUR_KEY" \
@@ -162,10 +169,4 @@ curl -X POST http://127.0.0.1:8080/chat \
 
 ## Overall Assessment
 
-Backend logic is solid and production-quality. The RAG pipeline, auth, conversation history, and validation are all implemented correctly. The three primary blockers to real production deployment are:
-
-1. No frontend (users cannot access the chatbot directly)
-2. No Docker (cannot deploy without manual environment setup)
-3. No tests (risky to extend or refactor safely)
-
-CORS and rate limiting also require hardening before any public exposure.
+Backend is solid, live-tested, and production-quality. Confidence scoring, query logging, and LangGraph state management are all correctly implemented. The three remaining blockers are frontend, Docker, and tests.
