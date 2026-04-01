@@ -29,6 +29,10 @@ from chat_history import (
     log_query,
 )
 import uvicorn
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 
 logging.basicConfig(
@@ -37,6 +41,9 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger(__name__)
+
+
+limiter = Limiter(key_func=get_remote_address)
 
 
 # ============= API KEY AUTH =============
@@ -66,12 +73,27 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Jio RAG Support API", version="1.0.0", lifespan=lifespan)
 
+app.state.limiter = limiter
+
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    client = request.client
+    host = client.host if client is not None else "unknown"
+    logger.warning(f"Rate limit exceeded | IP: {host}")
+    return JSONResponse(
+        status_code=429,
+        content={"detail": "Too many requests. Please wait before trying again."}
+    )
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # TODO: lock down to frontend URL before production
     allow_methods=["POST", "GET", "DELETE"],
     allow_headers=["*"],
 )
+app.add_middleware(SlowAPIMiddleware)
 
 
 @app.exception_handler(Exception)
@@ -123,13 +145,14 @@ def stats():
 
 
 @app.post("/chat", response_model=ChatResponse, dependencies=[Security(verify_api_key)])
-def chat(request: ChatRequest):
+@limiter.limit("10/minute")
+def chat(request: Request, body: ChatRequest):
     request_id = str(uuid.uuid4())[:8]
-    logger.info(f"[{request_id}] Query: {request.query[:80]}")
+    logger.info(f"[{request_id}] Query: {body.query[:80]}")
     start = time.time()
 
     # Resolve or create conversation
-    conversation_id = request.conversation_id
+    conversation_id = body.conversation_id
     if conversation_id and not conversation_exists(conversation_id):
         raise HTTPException(status_code=404, detail="Conversation not found")
     if not conversation_id:
@@ -146,7 +169,7 @@ def chat(request: ChatRequest):
             messages.append(AIMessage(content=msg["content"]))
 
     # Append current query
-    messages.append(HumanMessage(content=request.query))
+    messages.append(HumanMessage(content=body.query))
 
     try:
         result = graph.invoke({"messages": messages, "rewrite_count": 0, "confidence": 0.0})
@@ -161,14 +184,14 @@ def chat(request: ChatRequest):
         response_time = (time.time() - start) * 1000
 
         # Persist both turns
-        save_message(conversation_id, "human", request.query)
+        save_message(conversation_id, "human", body.query)
         save_message(conversation_id, "ai", answer)
 
         try:
             log_query(
                 conversation_id=conversation_id,
                 request_id=request_id,
-                query=request.query,
+                query=body.query,
                 response_time_ms=round(response_time, 2),
                 confidence=confidence,
                 rewrite_count=result.get("rewrite_count", 0),
