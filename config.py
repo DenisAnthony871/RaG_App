@@ -121,3 +121,6 @@ JIO_KEYWORDS = [
 KEYWORD_THRESHOLD = 3
 MAX_REWRITES = 2
 RETRIEVER_K = 3
+
+MAX_HISTORY_TURNS = 5        # retain only last 5 turns (10 messages) of conversation
+MAX_REQUEST_SIZE_BYTES = 2 * 1024 * 1024  # 2MB request size limit

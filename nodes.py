@@ -86,6 +86,23 @@ def validate_input(state: JioState):
         logger.warning("Profanity detected in user input")
         return {"messages": [AIMessage(content="Please keep your message respectful. How can I help you with Jio services?")]}
 
+    # Prompt injection check
+    INJECTION_PHRASES = [
+        "ignore previous instructions",
+        "ignore all previous",
+        "disregard previous",
+        "forget your instructions",
+        "you are now",
+        "act as a new",
+        "act as an ai",
+        "pretend you are",
+        "jailbreak",
+        "dan mode",
+    ]
+    if any(phrase in cleaned.lower() for phrase in INJECTION_PHRASES):
+        logger.warning("Prompt injection attempt detected")
+        return {"messages": [AIMessage(content="I can't help with that. Please ask about Jio services instead.")]}
+
     # Spell correction
     corrected = correct_spelling(cleaned)
     if corrected != cleaned:

@@ -17,7 +17,7 @@ from typing import Optional
 from langchain_core.messages import HumanMessage, AIMessage
 from rag_graph import graph
 from database import vectorstore, check_ollama_health
-from config import DB_PATH, COLLECTION_NAME
+from config import DB_PATH, COLLECTION_NAME, MAX_HISTORY_TURNS
 from chat_history import (
     init_db,
     create_conversation,
@@ -33,6 +33,8 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
 
 
 logging.basicConfig(
@@ -48,6 +50,8 @@ limiter = Limiter(key_func=get_remote_address)
 
 # ============= API KEY AUTH =============
 API_KEY = os.getenv("JIO_RAG_API_KEY")
+ALLOWED_ORIGINS = [origin.strip() for origin in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",") if origin.strip()]
+MAX_REQUEST_SIZE_BYTES = 2 * 1024 * 1024  # 2MB
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 async def verify_api_key(request: Request, api_key: str = Security(api_key_header)):
@@ -59,6 +63,25 @@ async def verify_api_key(request: Request, api_key: str = Security(api_key_heade
         logger.warning(f"Rejected request — invalid or missing API key | IP: {client_ip}")
         raise HTTPException(status_code=401, detail="Invalid or missing API key")
     return api_key
+
+
+class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        content_length = request.headers.get("content-length")
+        if content_length:
+            try:
+                content_length_int = int(content_length)
+                if content_length_int > MAX_REQUEST_SIZE_BYTES:
+                    host = request.client.host if request.client else "unknown"
+                    logger.warning(f"Request too large: {content_length_int} bytes | IP: {host}")
+                    return Response(
+                        content='{"detail": "Request too large"}',
+                        status_code=413,
+                        media_type="application/json",
+                    )
+            except ValueError:
+                pass
+        return await call_next(request)
 
 
 @asynccontextmanager
@@ -89,11 +112,12 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # TODO: lock down to frontend URL before production
+    allow_origins=ALLOWED_ORIGINS,
     allow_methods=["POST", "GET", "DELETE"],
     allow_headers=["*"],
 )
 app.add_middleware(SlowAPIMiddleware)
+app.add_middleware(RequestSizeLimitMiddleware)
 
 
 @app.exception_handler(Exception)
@@ -103,6 +127,9 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 
 # ============= MODELS =============
+class BadRequestError(Exception):
+    pass
+
 class ChatRequest(BaseModel):
     query: str = Field(..., min_length=3, max_length=500)
     conversation_id: Optional[str] = None
@@ -161,6 +188,9 @@ def chat(request: Request, body: ChatRequest):
 
     # Load history and build message list
     history = load_history(conversation_id)
+    # Trim to last MAX_HISTORY_TURNS turns (2 messages per turn)
+    max_messages = MAX_HISTORY_TURNS * 2
+    history = history[-max_messages:] if len(history) > max_messages else history
     messages = []
     for msg in history:
         if msg["role"] == "human":
@@ -211,9 +241,21 @@ def chat(request: Request, body: ChatRequest):
             status="success",
             response_time_ms=round(response_time, 2)
         )
+    except IndexError:
+        logger.error(f"[{request_id}] Graph state error — missing expected message")
+        raise HTTPException(status_code=500, detail="Invalid graph state")
+    except TimeoutError:
+        logger.error(f"[{request_id}] LLM processing timeout")
+        raise HTTPException(status_code=504, detail="Processing timeout")
+    except BadRequestError as e:
+        logger.error(f"[{request_id}] Bad request error: {e}")
+        raise HTTPException(status_code=400, detail="Bad request")
+    except ValueError as e:
+        logger.error(f"[{request_id}] Internal Value error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
     except Exception as e:
-        logger.error(f"[{request_id}] Error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to process query")
+        logger.error(f"[{request_id}] Unexpected error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal error")
 
 
 @app.get("/conversations/{conversation_id}", dependencies=[Security(verify_api_key)])

@@ -157,11 +157,9 @@ return {"messages": messages, "rewrite_count": rewrite_count + 1}
 
 ---
 
-## Open Bugs
+### BUG #4: Generic Exception Handler in Chat Endpoint — FIXED
 
-### BUG #4: Generic Exception Handler in Chat Endpoint — OPEN
-
-**File:** `main.py` | **Severity:** Medium
+**File:** `main.py` | **Was:** Medium
 
 **Problem:** All graph errors produce the same HTTP 500:
 
@@ -170,23 +168,13 @@ except Exception as e:
     raise HTTPException(status_code=500, detail="Failed to process query")
 ```
 
-**Recommended Fix:**
-
-```python
-except IndexError:
-    raise HTTPException(status_code=500, detail="Invalid graph state")
-except TimeoutError:
-    raise HTTPException(status_code=504, detail="Processing timeout")
-except Exception as e:
-    logger.error(f"[{request_id}] Unexpected error: {e}", exc_info=True)
-    raise HTTPException(status_code=500, detail="Internal error")
-```
+**Fix Applied:** Split the generic block into specific exceptions for `IndexError` (500), `TimeoutError` (504), `ValueError` (400), and a fallback `Exception`.
 
 ---
 
-### BUG #8: CORS Open to All Origins — OPEN
+### BUG #8: CORS Open to All Origins — FIXED
 
-**File:** `main.py` | **Severity:** High (for production)
+**File:** `main.py` | **Was:** High (for production)
 
 **Problem:**
 
@@ -194,11 +182,25 @@ except Exception as e:
 allow_origins=["*"],  # Any origin can call this API
 ```
 
-**Recommended Fix:**
+**Fix Applied:** Locked down origins by configuring `allow_origins=ALLOWED_ORIGINS` mapped to an environment variable.
 
-```python
-allow_origins=["http://localhost:3000", "https://your-frontend-domain.com"],
-```
+---
+
+## Open Bugs
+
+### BUG #11: No Tenant Isolation on Conversation Endpoints — OPEN
+**File:** main.py | **Severity:** High (for multi-user production)
+
+**Problem:** Any client with a valid API key can read or delete any conversation
+ID via GET/DELETE /conversations/{id}. Conversations are not bound to specific users.
+
+**Impact:** In a single-key setup (current) this is acceptable. In any multi-user
+or multi-tenant deployment this is a data privacy violation.
+
+**Recommended Fix:** Issue per-user API keys and store conversation ownership in
+the database. Validate that the requesting key owns the conversation before returning data.
+
+**Status:** Known limitation — deferred until multi-user auth is implemented.
 
 ---
 
@@ -209,14 +211,15 @@ allow_origins=["http://localhost:3000", "https://your-frontend-domain.com"],
 | #1 | Critical | `validate_input` replaced full message history | Fixed |
 | #2 | Critical | `rewrite_question` dropped all context | Fixed |
 | #3 | High | Unsafe chained `.get()` in `/stats` | Fixed |
-| #4 | Medium | Generic `except Exception` hides error types | Open |
+| #4 | Medium | Generic `except Exception` hides error types | Fixed |
 | #5 | Medium | `startswith("{")` missed arrays and spaced JSON | Fixed |
 | #6 | Low | No doc limit in `retriever_tool` | Fixed |
 | #7 | Low | `check_ollama_health()` called twice on startup | Fixed |
-| #8 | High | CORS `allow_origins=["*"]` — open to all origins | Open |
+| #8 | High | CORS `allow_origins=["*"]` — open to all origins | Fixed |
 | #9 | High | Router mutated state directly — confidence never persisted | Fixed |
 | #10 | Medium | `rewrite_count` inferred from message count (broke with history) | Fixed |
+| #11 | High | No tenant isolation on conversation endpoints | Open |
 
 ---
 
-2 bugs remain open. BUG #8 must be resolved before any public production deployment. BUG #4 is low urgency but improves debuggability.
+1 bug remains open. BUG #11 must be resolved before any public multi-tenant deployment.

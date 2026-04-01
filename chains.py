@@ -3,7 +3,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_ollama import ChatOllama
 from config import LLM_MODEL
 
-response_model = ChatOllama(model=LLM_MODEL)
+response_model = ChatOllama(model=LLM_MODEL, timeout=60)
 
 REWRITE_PROMPT = ChatPromptTemplate.from_messages([
     (
