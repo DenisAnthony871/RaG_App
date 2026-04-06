@@ -69,3 +69,23 @@ node_modules/
 
 # Debug or connection scripts containing hardcoded credentials
 connection.py
+
+# Ad-hoc terminal dumps and debug output
+pytest*.txt
+test_results*.txt
+debug_output.json
+*.json.bak
+
+# OS Files
+desktop.ini
+
+# Standard Python Virtual Environments
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Logs
+pip-log.txt
+pip-delete-this-directory.txt
