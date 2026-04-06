@@ -190,19 +190,19 @@ def stats():
         raise HTTPException(status_code=500, detail="Could not fetch stats")
 
 
-@app.post("/chat", response_model=ChatResponse, dependencies=[Security(verify_api_key)])
+@app.post("/chat", response_model=ChatResponse)
 @limiter.limit("10/minute")
-def chat(request: Request, body: ChatRequest):
+async def chat(request: Request, body: ChatRequest, api_key: str = Security(verify_api_key)):
     request_id = str(uuid.uuid4())[:8]
     logger.info(f"[{request_id}] Query: {body.query[:80]}")
     start = time.time()
 
-    # Resolve or create conversation
+    # Resolve or create conversation — scoped to this API key (owner_id)
     conversation_id = body.conversation_id
     if conversation_id and not conversation_exists(conversation_id):
         raise HTTPException(status_code=404, detail="Conversation not found")
     if not conversation_id:
-        conversation_id = create_conversation()
+        conversation_id = create_conversation(owner_id=api_key)
         logger.info(f"[{request_id}] New conversation: {conversation_id}")
 
     # Load history and build message list
@@ -278,18 +278,18 @@ def chat(request: Request, body: ChatRequest):
         raise HTTPException(status_code=500, detail="Internal error")
 
 
-@app.get("/conversations/{conversation_id}", dependencies=[Security(verify_api_key)])
-def get_conversation(conversation_id: str):
-    summary = get_conversation_summary(conversation_id)
+@app.get("/conversations/{conversation_id}")
+def get_conversation(conversation_id: str, api_key: str = Security(verify_api_key)):
+    summary = get_conversation_summary(conversation_id, owner_id=api_key)
     if not summary:
         raise HTTPException(status_code=404, detail="Conversation not found")
     history = load_history(conversation_id)
     return {"conversation": summary, "messages": history}
 
 
-@app.delete("/conversations/{conversation_id}", dependencies=[Security(verify_api_key)])
-def remove_conversation(conversation_id: str):
-    deleted = delete_conversation(conversation_id)
+@app.delete("/conversations/{conversation_id}")
+def remove_conversation(conversation_id: str, api_key: str = Security(verify_api_key)):
+    deleted = delete_conversation(conversation_id, owner_id=api_key)
     if not deleted:
         raise HTTPException(status_code=404, detail="Conversation not found")
     return {"status": "deleted", "conversation_id": conversation_id}

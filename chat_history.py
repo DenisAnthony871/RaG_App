@@ -25,10 +25,16 @@ def init_db():
         conn.execute("""
             CREATE TABLE IF NOT EXISTS conversations (
                 conversation_id TEXT PRIMARY KEY,
+                owner_id TEXT NOT NULL DEFAULT '',
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             )
         """)
+        # Safe migration: add owner_id column if it doesn't exist yet (for existing DBs)
+        try:
+            conn.execute("ALTER TABLE conversations ADD COLUMN owner_id TEXT NOT NULL DEFAULT ''")
+        except Exception:
+            pass  # Column already exists
         conn.execute("""
             CREATE TABLE IF NOT EXISTS messages (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -59,14 +65,14 @@ def init_db():
     logger.info("Chat history database initialized")
 
 
-def create_conversation() -> str:
+def create_conversation(owner_id: str = "") -> str:
     """Create a new conversation and return its ID"""
     conversation_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
     with get_connection() as conn:
         conn.execute(
-            "INSERT INTO conversations (conversation_id, created_at, updated_at) VALUES (?, ?, ?)",
-            (conversation_id, now, now)
+            "INSERT INTO conversations (conversation_id, owner_id, created_at, updated_at) VALUES (?, ?, ?, ?)",
+            (conversation_id, owner_id, now, now)
         )
         conn.commit()
     return conversation_id
@@ -113,12 +119,12 @@ def load_history(conversation_id: str) -> list[dict]:
     return [{"role": row["role"], "content": row["content"], "timestamp": row["timestamp"]} for row in rows]
 
 
-def get_conversation_summary(conversation_id: str) -> Optional[dict]:
-    """Get conversation metadata"""
+def get_conversation_summary(conversation_id: str, owner_id: str = "") -> Optional[dict]:
+    """Get conversation metadata — enforces owner_id isolation if provided"""
     with get_connection() as conn:
         conv = conn.execute(
-            "SELECT conversation_id, created_at, updated_at FROM conversations WHERE conversation_id = ?",
-            (conversation_id,)
+            "SELECT conversation_id, created_at, updated_at FROM conversations WHERE conversation_id = ? AND owner_id = ?",
+            (conversation_id, owner_id)
         ).fetchone()
         if not conv:
             return None
@@ -134,18 +140,23 @@ def get_conversation_summary(conversation_id: str) -> Optional[dict]:
     }
 
 
-def delete_conversation(conversation_id: str) -> bool:
-    """Delete a conversation and all its messages. Returns True if deleted."""
+def delete_conversation(conversation_id: str, owner_id: str = "") -> bool:
+    """Delete a conversation and all its messages — enforces owner_id isolation. Returns True if deleted."""
     with get_connection() as conn:
-        # Delete messages first (CASCADE handles this if FK is ON, but explicit for clarity)
+        # Only delete if owner matches
+        convo_check = conn.execute(
+            "SELECT 1 FROM conversations WHERE conversation_id = ? AND owner_id = ?",
+            (conversation_id, owner_id)
+        ).fetchone()
+        if not convo_check:
+            return False
         conn.execute(
             "DELETE FROM messages WHERE conversation_id = ?",
             (conversation_id,)
         )
-        # Capture rowcount from conversations DELETE — this is the correct existence check
         convo_result = conn.execute(
-            "DELETE FROM conversations WHERE conversation_id = ?",
-            (conversation_id,)
+            "DELETE FROM conversations WHERE conversation_id = ? AND owner_id = ?",
+            (conversation_id, owner_id)
         )
         conn.commit()
     return convo_result.rowcount > 0

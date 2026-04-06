@@ -57,8 +57,8 @@ def test_get_conversation_with_auth(client, auth_headers, mock_db):
     
     response = client.get("/conversations/test-id", headers=auth_headers)
     
-    # Assert side effects
-    mock_db["get_conversation_summary"].assert_called_with("test-id")
+    # Assert side effects — owner_id is now passed for tenant isolation
+    mock_db["get_conversation_summary"].assert_called_with("test-id", owner_id="test-api-key-12345")
     mock_db["load_history"].assert_called_with("test-id")
     
     assert response.status_code == 200
@@ -80,3 +80,15 @@ def test_delete_conversation_not_found(client, auth_headers, mock_db):
 def test_get_stats_without_auth(client):
     response = client.get("/stats")
     assert response.status_code == 401
+
+def test_get_conversation_wrong_owner(client, mock_db):
+    # Simulate a different API key — get_conversation_summary returns None (not owned by this key)
+    mock_db["get_conversation_summary"].return_value = None
+    response = client.get("/conversations/some-id", headers={"X-API-Key": "test-api-key-12345"})
+    assert response.status_code == 404
+
+def test_delete_conversation_wrong_owner(client, mock_db):
+    # Simulate a different owner — delete_conversation returns False (not owned by this key)
+    mock_db["delete_conversation"].return_value = False
+    response = client.delete("/conversations/some-id", headers={"X-API-Key": "test-api-key-12345"})
+    assert response.status_code == 404
