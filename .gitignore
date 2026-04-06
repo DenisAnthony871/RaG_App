@@ -35,12 +35,6 @@ chat_history.db
 *.db
 *.sqlite3
 
-# Internal development docs — not for public GitHub repo
-PROJECT_STATUS.md
-BUG_REPORT.md
-REMAINING_WORK.md
-TESTING_ENDPOINTS.md
-
 # Testing
 .pytest_cache/
 .coverage

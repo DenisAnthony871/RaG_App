@@ -227,5 +227,4 @@ allow_origins=["*"],  # Any origin can call this API
 | #12 | High | No tenant isolation on conversation endpoints | Open |
 
 ---
-
-1 bug remains open. BUG #11 must be resolved before any public multi-tenant deployment.
+1 bug remains open. BUG #12 must be resolved before any public multi-tenant deployment.

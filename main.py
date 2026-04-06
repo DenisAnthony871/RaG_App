@@ -52,7 +52,7 @@ limiter = Limiter(key_func=get_remote_address)
 
 # ============= API KEY AUTH =============
 API_KEY = os.getenv("JIO_RAG_API_KEY")
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+ALLOWED_ORIGINS = [origin.strip() for origin in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",") if origin.strip()]
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 async def verify_api_key(request: Request, api_key: str = Security(api_key_header)):
@@ -69,8 +69,12 @@ async def verify_api_key(request: Request, api_key: str = Security(api_key_heade
 class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         content_length = request.headers.get("content-length")
-        if content_length and int(content_length) > MAX_REQUEST_SIZE_BYTES:
-            return Response(content='{"detail": "Request too large"}', status_code=413, media_type="application/json")
+        if content_length:
+            try:
+                if int(content_length) > MAX_REQUEST_SIZE_BYTES:
+                    return Response(content='{"detail": "Request too large"}', status_code=413, media_type="application/json")
+            except ValueError:
+                pass
             
         body = b""
         more_body = True
