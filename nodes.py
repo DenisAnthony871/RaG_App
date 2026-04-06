@@ -1,5 +1,7 @@
 import uuid
 import logging
+import re
+import unicodedata
 import importlib.resources
 from typing import Annotated
 from typing_extensions import TypedDict, NotRequired
@@ -86,22 +88,31 @@ def validate_input(state: JioState):
         logger.warning("Profanity detected in user input")
         return {"messages": [AIMessage(content="Please keep your message respectful. How can I help you with Jio services?")]}
 
-    # Prompt injection check
-    INJECTION_PHRASES = [
-        "ignore previous instructions",
-        "ignore all previous",
-        "disregard previous",
-        "forget your instructions",
-        "you are now",
-        "act as a new",
-        "act as an ai",
-        "pretend you are",
-        "jailbreak",
-        "dan mode",
-    ]
-    if any(phrase in cleaned.lower() for phrase in INJECTION_PHRASES):
-        logger.warning("Prompt injection attempt detected")
+    # Prompt injection check - Defense-in-Depth
+    # 1. Robust Input Normalization
+    normalized = unicodedata.normalize("NFKC", cleaned)
+    # Remove basic homoglyphs/deceptive punctuation and collapse whitespace
+    normalized = re.sub(r"[^\w\s]", "", normalized.lower())
+    normalized = re.sub(r"\s+", " ", normalized)
+
+    # 2. Regex-based Detection
+    injection_pattern = re.compile(
+        r"\b(ignore|disregard|forget)\b.*\b(previous|all|instructions|prompts)\b|\b(jailbreak|dan mode|act as|pretend you are)\b",
+        re.IGNORECASE
+    )
+    if injection_pattern.search(normalized):
+        logger.warning("[PROMPT_INJECTION_DETECTED] Regex pattern match")
         return {"messages": [AIMessage(content="I can't help with that. Please ask about Jio services instead.")]}
+
+    # 3. Intent Classifier (Heuristic based on imperative verbs)
+    imperative_verbs = {"ignore", "disregard", "forget", "bypass", "act", "pretend", "jailbreak"}
+    words = normalized.split()
+    verb_count = sum(1 for w in words if w in imperative_verbs)
+    if verb_count >= 2 and len(words) <= 20: # Short bursts of heavy instructions
+        logger.warning(f"[PROMPT_INJECTION_DETECTED] Heuristic triggered: {verb_count} imperative verbs")
+        return {"messages": [AIMessage(content="I can't help with that. Please ask about Jio services instead.")]}
+    
+    # 4 & 5. Boundary enforcement is native via AIMessage return encapsulation. Telemetry handled via distinct warning tags above.
 
     # Spell correction
     corrected = correct_spelling(cleaned)

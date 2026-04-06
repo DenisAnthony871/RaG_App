@@ -45,7 +45,7 @@ The following was confirmed from the running uvicorn process:
 | Query Analytics Logging | Complete | `log_query()` records every request with confidence + timing |
 | Conversation CRUD | Complete | GET / DELETE `/conversations/{id}` endpoints |
 | Ollama Health Check | Complete | Startup exits cleanly if unavailable (single call in `lifespan`) |
-| CORS Middleware | Complete | Open (`*`) — needs locking before production |
+| CORS Middleware | ⚠️ Partial | Open (`*`) — needs locking before production |
 | Global Error Handler | Complete | Returns 500 JSON |
 | LangSmith Tracing | Configured | `LANGCHAIN_TRACING_V2=true` |
 | Swagger UI | Available | `/docs` endpoint |
@@ -108,7 +108,7 @@ The following was confirmed from the running uvicorn process:
 
 | # | Severity | Issue | Status |
 |---|----------|-------|--------|
-| A | High | CORS `allow_origins=["*"]` — open to any origin | Open |
+| A | High | CORS `allow_origins=["*"]` — needs locking before production | Open |
 | B | Medium | Generic `except Exception` in chat endpoint (BUG #4) | Open |
 | C | Medium | No rate limiting on API endpoints | Open |
 | D | Low | `connection.py` orphaned — never imported | Open |

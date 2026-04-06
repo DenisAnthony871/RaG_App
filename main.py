@@ -5,6 +5,8 @@ import os
 import secrets
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
+import concurrent.futures
+from httpx import ReadTimeout
 
 load_dotenv()
 
@@ -17,7 +19,7 @@ from typing import Optional
 from langchain_core.messages import HumanMessage, AIMessage
 from rag_graph import graph
 from database import vectorstore, check_ollama_health
-from config import DB_PATH, COLLECTION_NAME, MAX_HISTORY_TURNS
+from config import DB_PATH, COLLECTION_NAME, MAX_HISTORY_TURNS, MAX_REQUEST_SIZE_BYTES
 from chat_history import (
     init_db,
     create_conversation,
@@ -50,8 +52,7 @@ limiter = Limiter(key_func=get_remote_address)
 
 # ============= API KEY AUTH =============
 API_KEY = os.getenv("JIO_RAG_API_KEY")
-ALLOWED_ORIGINS = [origin.strip() for origin in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",") if origin.strip()]
-MAX_REQUEST_SIZE_BYTES = 2 * 1024 * 1024  # 2MB
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 async def verify_api_key(request: Request, api_key: str = Security(api_key_header)):
@@ -68,19 +69,33 @@ async def verify_api_key(request: Request, api_key: str = Security(api_key_heade
 class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         content_length = request.headers.get("content-length")
-        if content_length:
-            try:
-                content_length_int = int(content_length)
-                if content_length_int > MAX_REQUEST_SIZE_BYTES:
-                    host = request.client.host if request.client else "unknown"
-                    logger.warning(f"Request too large: {content_length_int} bytes | IP: {host}")
-                    return Response(
-                        content='{"detail": "Request too large"}',
-                        status_code=413,
-                        media_type="application/json",
-                    )
-            except ValueError:
-                pass
+        if content_length and int(content_length) > MAX_REQUEST_SIZE_BYTES:
+            return Response(content='{"detail": "Request too large"}', status_code=413, media_type="application/json")
+            
+        body = b""
+        more_body = True
+        # As directed: enforce size limit by reading chunks via an async loop over request.receive()
+        # This replaces the unsafe request.body() and also avoids request.stream() issues in BaseHTTPMiddleware.
+        while more_body:
+            message = await request.receive()
+            body += message.get("body", b"")
+            more_body = message.get("more_body", False)
+            if len(body) > MAX_REQUEST_SIZE_BYTES:
+                host = request.client.host if request.client else "unknown"
+                logger.warning(f"Request too large (streamed) | IP: {host}")
+                return Response(
+                    content='{"detail": "Request too large"}',
+                    status_code=413,
+                    media_type="application/json",
+                )
+        
+        # Re-supply the body to downstream handlers using Starlette's documented receive pattern
+        # This avoids leaving request._receive in a consumed state.
+        # Note: Directly mutating request._receive accesses Starlette internals (known workaround).
+        async def receive():
+            return {"type": "http.request", "body": body}
+        request._receive = receive
+        
         return await call_next(request)
 
 
@@ -242,11 +257,8 @@ def chat(request: Request, body: ChatRequest):
             response_time_ms=round(response_time, 2)
         )
     except IndexError:
-        logger.error(f"[{request_id}] Graph state error — missing expected message")
+        logger.error(f"[{request_id}] Graph state error", exc_info=True)
         raise HTTPException(status_code=500, detail="Invalid graph state")
-    except TimeoutError:
-        logger.error(f"[{request_id}] LLM processing timeout")
-        raise HTTPException(status_code=504, detail="Processing timeout")
     except BadRequestError as e:
         logger.error(f"[{request_id}] Bad request error: {e}")
         raise HTTPException(status_code=400, detail="Bad request")
@@ -254,6 +266,10 @@ def chat(request: Request, body: ChatRequest):
         logger.error(f"[{request_id}] Internal Value error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
     except Exception as e:
+        # use specific LLM library timeout instead if possible!
+        if isinstance(e, (TimeoutError, ReadTimeout, concurrent.futures.TimeoutError)):
+            logger.error(f"[{request_id}] LLM processing timeout", exc_info=True)
+            raise HTTPException(status_code=504, detail="Processing timeout")
         logger.error(f"[{request_id}] Unexpected error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal error")
 

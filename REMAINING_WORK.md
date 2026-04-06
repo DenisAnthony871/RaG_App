@@ -51,7 +51,7 @@
 
 ### Documentation
 - `README.md` — setup guide, pipeline diagram, API reference, troubleshooting
-- `PROJECT_STATUS.md` — file-by-file status, current issues
+- `REMAINING_WORK.md` — file-by-file status, current issues
 - `BUG_REPORT.md` — all bugs tracked (5 fixed, 3 open)
 - `TESTING_ENDPOINTS.md` — curl / Python / PowerShell examples
 

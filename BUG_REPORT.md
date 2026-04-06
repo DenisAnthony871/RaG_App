@@ -129,7 +129,7 @@ Routers must return a string. State updates must come from node return values. C
 
 `rag_graph.py` updated:
 
-```
+```text
 format_answer -> check_hallucination (node) -> hallucination_router (conditional edge)
 ```
 
@@ -188,26 +188,32 @@ allow_origins=["*"],  # Any origin can call this API
 
 ## Open Bugs
 
-### BUG #11: No Tenant Isolation on Conversation Endpoints — OPEN
+### BUG #12: No Tenant Isolation on Conversation Endpoints — OPEN
+
 **File:** main.py | **Severity:** High (for multi-user production)
 
-**Problem:** Any client with a valid API key can read or delete any conversation
-ID via GET/DELETE /conversations/{id}. Conversations are not bound to specific users.
+**Problem:** Conversations returned by the GET/DELETE /conversations/{id} handlers in main.py are not tenant-isolated. Any client with a valid API key can read or delete any conversation.
 
-**Impact:** In a single-key setup (current) this is acceptable. In any multi-user
-or multi-tenant deployment this is a data privacy violation.
+**Recommended Fix:**
 
-**Recommended Fix:** Issue per-user API keys and store conversation ownership in
-the database. Validate that the requesting key owns the conversation before returning data.
+1. Update Conversation storage schema to include `owner_id`.
+2. Enforce ownership checks in the conversation read/delete handlers (GET/DELETE /conversations/{id}).
+3. Ensure API key lookup maps to a specific user before returning or deleting a conversation (validating the requesting key’s owner against `conversation.owner_id`).
+4. Add startup validation to detect multiple API keys and hard-fail if multi-key usage is present natively. Emit runtime warnings when multiple distinct keys or multi-user patterns are observed.
 
-**Status:** Known limitation — deferred until multi-user auth is implemented.
+**Implementation Timeline TODO:**
+
+- [ ] Add `owner_id` to schema
+- [ ] Route `owner_id` through handlers
+- [ ] Add multi-key detection at app startup
+- [ ] Update tests for conversation access and startup key validation
 
 ---
 
 ## Bug Summary
 
 | Bug # | Severity | Description | Status |
-|-------|----------|-------------|--------|
+| ----- | -------- | ----------- | ------ |
 | #1 | Critical | `validate_input` replaced full message history | Fixed |
 | #2 | Critical | `rewrite_question` dropped all context | Fixed |
 | #3 | High | Unsafe chained `.get()` in `/stats` | Fixed |
@@ -218,7 +224,7 @@ the database. Validate that the requesting key owns the conversation before retu
 | #8 | High | CORS `allow_origins=["*"]` — open to all origins | Fixed |
 | #9 | High | Router mutated state directly — confidence never persisted | Fixed |
 | #10 | Medium | `rewrite_count` inferred from message count (broke with history) | Fixed |
-| #11 | High | No tenant isolation on conversation endpoints | Open |
+| #12 | High | No tenant isolation on conversation endpoints | Open |
 
 ---
 

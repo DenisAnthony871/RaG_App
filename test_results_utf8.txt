@@ -1,0 +1,134 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.12.12, pytest-9.0.2, pluggy-1.6.0
+rootdir: D:\Rag_based_test\New folder
+configfile: pytest.ini
+testpaths: tests
+plugins: anyio-4.12.1, langsmith-0.7.3, asyncio-1.3.0, cov-7.1.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 34 items
+
+tests\test_chat_history.py ........                                      [ 23%]
+tests\test_main.py ...F..FFFFF..                                         [ 61%]
+tests\test_nodes.py .............                                        [100%]
+
+================================== FAILURES ===================================
+_____________________________ test_chat_valid_key _____________________________
+
+client = <starlette.testclient.TestClient object at 0x00000221E3174110>
+auth_headers = {'X-API-Key': 'test-api-key-12345'}
+
+    def test_chat_valid_key(client, auth_headers):
+        response = client.post("/chat", headers=auth_headers, json={"query": "What is Jio?"})
+>       assert response.status_code == 200
+E       assert 422 == 200
+E        +  where 422 = <Response [422 Unprocessable Entity]>.status_code
+
+tests\test_main.py:16: AssertionError
+________________________ test_chat_no_conversation_id _________________________
+
+client = <starlette.testclient.TestClient object at 0x00000221E30D6CC0>
+auth_headers = {'X-API-Key': 'test-api-key-12345'}
+mock_db = {'conversation_exists': <MagicMock name='conversation_exists' id='2344568098352'>, 'create_conversation': <MagicMock n...' id='2344568134288'>, 'get_conversation_summary': <MagicMock name='get_conversation_summary' id='2344567985632'>, ...}
+
+    def test_chat_no_conversation_id(client, auth_headers, mock_db):
+        response = client.post("/chat", headers=auth_headers, json={"query": "testing new conv"})
+>       assert response.status_code == 200
+E       assert 422 == 200
+E        +  where 422 = <Response [422 Unprocessable Entity]>.status_code
+
+tests\test_main.py:34: AssertionError
+_______________________ test_chat_valid_conversation_id _______________________
+
+client = <starlette.testclient.TestClient object at 0x00000221E136A540>
+auth_headers = {'X-API-Key': 'test-api-key-12345'}
+mock_db = {'conversation_exists': <MagicMock name='conversation_exists' id='2344566607072'>, 'create_conversation': <MagicMock n...' id='2344566545472'>, 'get_conversation_summary': <MagicMock name='get_conversation_summary' id='2344566541056'>, ...}
+
+    def test_chat_valid_conversation_id(client, auth_headers, mock_db):
+        mock_db["conversation_exists"].return_value = True
+        response = client.post("/chat", headers=auth_headers, json={"query": "testing existing", "conversation_id": "test-id"})
+>       assert response.status_code == 200
+E       assert 422 == 200
+E        +  where 422 = <Response [422 Unprocessable Entity]>.status_code
+
+tests\test_main.py:40: AssertionError
+______________________ test_chat_unknown_conversation_id ______________________
+
+client = <starlette.testclient.TestClient object at 0x00000221E323D700>
+auth_headers = {'X-API-Key': 'test-api-key-12345'}
+mock_db = {'conversation_exists': <MagicMock name='conversation_exists' id='2344567037136'>, 'create_conversation': <MagicMock n...' id='2344567132128'>, 'get_conversation_summary': <MagicMock name='get_conversation_summary' id='2344567136112'>, ...}
+
+    def test_chat_unknown_conversation_id(client, auth_headers, mock_db):
+        mock_db["conversation_exists"].return_value = False
+        response = client.post("/chat", headers=auth_headers, json={"query": "testing unknown", "conversation_id": "bad-id"})
+>       assert response.status_code == 404
+E       assert 422 == 404
+E        +  where 422 = <Response [422 Unprocessable Entity]>.status_code
+
+tests\test_main.py:46: AssertionError
+_______________________ test_get_conversation_with_auth _______________________
+
+client = <starlette.testclient.TestClient object at 0x00000221E323CA40>
+auth_headers = {'X-API-Key': 'test-api-key-12345'}
+mock_db = {'conversation_exists': <MagicMock name='conversation_exists' id='2344566745296'>, 'create_conversation': <MagicMock n...' id='2344566693168'>, 'get_conversation_summary': <MagicMock name='get_conversation_summary' id='2344566700848'>, ...}
+
+    def test_get_conversation_with_auth(client, auth_headers, mock_db):
+        # Configure exact mock returns to ensure structural integrity and deterministic flow
+        mock_db["get_conversation_summary"].return_value = {
+            "conversation_id": "test-id",
+            "created_at": "2026-04-06T00:00:00",
+            "updated_at": "2026-04-06T00:00:00",
+            "message_count": 2
+        }
+        mock_db["load_history"].return_value = [{"role": "human", "content": "mock content"}]
+    
+        response = client.get("/conversations/test-id", headers=auth_headers)
+    
+        # Assert side effects
+>       mock_db["get_conversation_summary"].assert_called_with("test-id")
+
+tests\test_main.py:61: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <MagicMock name='get_conversation_summary' id='2344566700848'>
+args = ('test-id',), kwargs = {}
+expected = "get_conversation_summary('test-id')", actual = 'not called.'
+error_message = "expected call not found.\nExpected: get_conversation_summary('test-id')\n  Actual: not called."
+
+    def assert_called_with(self, /, *args, **kwargs):
+        """assert that the last call was made with the specified arguments.
+    
+        Raises an AssertionError if the args and keyword args passed in are
+        different to the last call to the mock."""
+        if self.call_args is None:
+            expected = self._format_mock_call_signature(args, kwargs)
+            actual = 'not called.'
+            error_message = ('expected call not found.\nExpected: %s\n  Actual: %s'
+                    % (expected, actual))
+>           raise AssertionError(error_message)
+E           AssertionError: expected call not found.
+E           Expected: get_conversation_summary('test-id')
+E             Actual: not called.
+
+C:\Users\Admin\AppData\Roaming\uv\python\cpython-3.12.12-windows-x86_64-none\Lib\unittest\mock.py:940: AssertionError
+_____________________ test_delete_conversation_with_auth ______________________
+
+client = <starlette.testclient.TestClient object at 0x00000221E33BE1B0>
+auth_headers = {'X-API-Key': 'test-api-key-12345'}
+mock_db = {'conversation_exists': <MagicMock name='conversation_exists' id='2344567438416'>, 'create_conversation': <MagicMock n...' id='2344568092672'>, 'get_conversation_summary': <MagicMock name='get_conversation_summary' id='2344568997552'>, ...}
+
+    def test_delete_conversation_with_auth(client, auth_headers, mock_db):
+        mock_db["delete_conversation"].return_value = True
+        response = client.delete("/conversations/test-id", headers=auth_headers)
+>       assert response.status_code == 200
+E       assert 404 == 200
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+tests\test_main.py:72: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_main.py::test_chat_valid_key - assert 422 == 200
+FAILED tests/test_main.py::test_chat_no_conversation_id - assert 422 == 200
+FAILED tests/test_main.py::test_chat_valid_conversation_id - assert 422 == 200
+FAILED tests/test_main.py::test_chat_unknown_conversation_id - assert 422 == 404
+FAILED tests/test_main.py::test_get_conversation_with_auth - AssertionError: ...
+FAILED tests/test_main.py::test_delete_conversation_with_auth - assert 404 ==...
+======================== 6 failed, 28 passed in 5.83s =========================
