@@ -35,14 +35,24 @@ def test_chat_no_conversation_id(client, auth_headers, mock_db):
     assert mock_db["create_conversation"].called
 
 def test_chat_valid_conversation_id(client, auth_headers, mock_db):
-    mock_db["conversation_exists"].return_value = True
+    # get_conversation_summary returns a valid dict by default — existing conversation is found.
     response = client.post("/chat", headers=auth_headers, json={"query": "testing existing", "conversation_id": "test-id"})
     assert response.status_code == 200
     assert not mock_db["create_conversation"].called
 
 def test_chat_unknown_conversation_id(client, auth_headers, mock_db):
-    mock_db["conversation_exists"].return_value = False
+    # Conversation does not exist at all — get_conversation_summary returns None
+    mock_db["get_conversation_summary"].return_value = None
     response = client.post("/chat", headers=auth_headers, json={"query": "testing unknown", "conversation_id": "bad-id"})
+    assert response.status_code == 404
+
+
+def test_chat_cross_tenant_conversation_id(client, auth_headers, mock_db):
+    # Conversation exists but is owned by a different API key.
+    # get_conversation_summary returns None when owner_id doesn't match —
+    # the caller must not be able to load another tenant's history.
+    mock_db["get_conversation_summary"].return_value = None
+    response = client.post("/chat", headers=auth_headers, json={"query": "stealing history", "conversation_id": "other-owners-id"})
     assert response.status_code == 404
 
 def test_get_conversation_with_auth(client, auth_headers, mock_db):

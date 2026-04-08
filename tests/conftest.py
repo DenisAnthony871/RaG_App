@@ -25,8 +25,7 @@ def mock_graph():
 
 @pytest.fixture
 def mock_db():
-    with patch("main.conversation_exists", return_value=True) as ce, \
-         patch("main.create_conversation", return_value=str(uuid.uuid4())) as cc, \
+    with patch("main.create_conversation", return_value=str(uuid.uuid4())) as cc, \
          patch("main.load_history", return_value=[]) as lh, \
          patch("main.save_message") as sm, \
          patch("main.log_query") as lq, \
@@ -38,7 +37,6 @@ def mock_db():
              "message_count": 2
          }) as gcs:
         yield {
-            "conversation_exists": ce,
             "create_conversation": cc,
             "load_history": lh,
             "save_message": sm,

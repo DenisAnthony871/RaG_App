@@ -23,7 +23,6 @@ from config import DB_PATH, COLLECTION_NAME, MAX_HISTORY_TURNS, MAX_REQUEST_SIZE
 from chat_history import (
     init_db,
     create_conversation,
-    conversation_exists,
     save_message,
     load_history,
     get_conversation_summary,
@@ -197,11 +196,15 @@ async def chat(request: Request, body: ChatRequest, api_key: str = Security(veri
     logger.info(f"[{request_id}] Query: {body.query[:80]}")
     start = time.time()
 
-    # Resolve or create conversation — scoped to this API key (owner_id)
+    # Resolve or create conversation — scoped to this API key (owner_id).
+    # get_conversation_summary enforces owner_id isolation at the DB level;
+    # returns None both when the conversation doesn't exist AND when it's owned
+    # by a different key — same 404 behaviour as GET/DELETE /conversations/{id}.
     conversation_id = body.conversation_id
-    if conversation_id and not conversation_exists(conversation_id):
-        raise HTTPException(status_code=404, detail="Conversation not found")
-    if not conversation_id:
+    if conversation_id:
+        if not get_conversation_summary(conversation_id, owner_id=api_key):
+            raise HTTPException(status_code=404, detail="Conversation not found")
+    else:
         conversation_id = create_conversation(owner_id=api_key)
         logger.info(f"[{request_id}] New conversation: {conversation_id}")
 
