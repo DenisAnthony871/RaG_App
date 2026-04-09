@@ -9,7 +9,7 @@ from langchain_core.messages import HumanMessage, AIMessage
 from langgraph.graph.message import add_messages
 from symspellpy import SymSpell, Verbosity
 from better_profanity import profanity
-from config import HARMFUL_KEYWORDS, JIO_KEYWORDS, KEYWORD_THRESHOLD, MAX_REWRITES, CUSTOM_CORRECTIONS
+from config import HARMFUL_KEYWORDS, JIO_KEYWORDS, KEYWORD_THRESHOLD, MAX_REWRITES, CUSTOM_CORRECTIONS, MAX_CONTEXT_CHARS, MAX_PROMPT_CONTEXT_CHARS
 from chains import rewrite_chain, response_model
 
 
@@ -237,6 +237,10 @@ def generate_answer(state: JioState):
 
     tool_messages = [msg.content for msg in messages if msg.type == "tool"]
     tool_message = "\n\n".join(tool_messages) if tool_messages else "No documents retrieved."
+    # Truncate to prevent token bloat on large knowledge base chunks
+    if len(tool_message) > MAX_CONTEXT_CHARS:
+        tool_message = tool_message[:MAX_CONTEXT_CHARS] + "...[truncated]"
+        logger.info(f"Context truncated to {MAX_CONTEXT_CHARS} chars")
 
     plain_prompt = f"""You are a Jio customer support assistant.
 Use the context below to answer the question.
@@ -309,7 +313,9 @@ def check_hallucination(state: JioState) -> dict:
     if not context or "No results found" in context:
         return {"confidence": 0.0}
 
-    context_words = set(context.lower().split())
+    # Truncate context for overlap check — full context not needed for word matching
+    context_check = context[:MAX_PROMPT_CONTEXT_CHARS] if len(context) > MAX_PROMPT_CONTEXT_CHARS else context
+    context_words = set(context_check.lower().split())
     answer_words = set(answer.lower().split())
     overlap = len(answer_words & context_words)
 

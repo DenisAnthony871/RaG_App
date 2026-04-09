@@ -48,6 +48,13 @@
 - `log_query()` called after every successful `/chat` response
 - `/stats` endpoint exposes aggregate query analytics
 
+### Context Compression ✅
+- `MAX_CONTEXT_CHARS = 1500` — retrieved context truncated before being passed to LLM
+- `MAX_PROMPT_CONTEXT_CHARS = 800` — context truncated before hallucination word-overlap check
+- Truncation applied in `generate_answer` with `logger.info` on hit
+- `check_hallucination` uses `context_check` slice — avoids scanning full knowledge-base chunks
+- No LLM summarisation (latency constraint) — simple char-truncation only
+
 ### Infrastructure and Config
 - Ollama health check on startup (`sys.exit(1)` with instructions if down)
 - `.env` file with all required variables

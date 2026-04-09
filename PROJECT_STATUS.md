@@ -50,6 +50,7 @@ The following was confirmed from the running uvicorn process:
 | Rate Limiting | ✅ Complete | `slowapi` — 10 req/min per IP, 429 + Retry-After |
 | Unit & Integration Tests | ✅ Complete | 60%+ coverage; test_nodes, test_chat_history, test_main |
 | Tenant Isolation | ✅ Complete | `/chat` scoped per tenant — enforced in auth layer |
+| Context Compression | ✅ Complete | `MAX_CONTEXT_CHARS=1500` in generate_answer; `MAX_PROMPT_CONTEXT_CHARS=800` in check_hallucination |
 | LangSmith Tracing | Configured | `LANGCHAIN_TRACING_V2=true` |
 | Swagger UI | Available | `/docs` endpoint |
 
@@ -153,6 +154,7 @@ The following was confirmed from the running uvicorn process:
 - **Tenant isolation** — `/chat` enforces per-tenant key scoping (BUG #8 resolved)
 - **CI/CD** — `python-app.yml` runs full test suite on push + PR to `main`/`develop`
 - `rate_limit_handler` hardened against missing `request.client` (AttributeError fix)
+- **Context compression** — `MAX_CONTEXT_CHARS=1500` in `generate_answer`; `MAX_PROMPT_CONTEXT_CHARS=800` in `check_hallucination`
 
 ---
 
@@ -179,4 +181,4 @@ curl -X POST http://127.0.0.1:8080/chat \
 
 ## Overall Assessment
 
-Backend is solid, live-tested, and production-quality. Confidence scoring, query logging, LangGraph state, rate limiting, auth, chat history, and all tests are correctly implemented and verified. The remaining blockers are frontend and Docker.
+Backend is solid, live-tested, and production-quality. Confidence scoring, query logging, LangGraph state, rate limiting, auth, chat history, context compression, and all tests are correctly implemented and verified. The remaining blockers are frontend and Docker.

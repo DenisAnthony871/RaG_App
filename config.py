@@ -124,3 +124,6 @@ RETRIEVER_K = 3
 
 MAX_HISTORY_TURNS = 5        # retain only last 5 turns (10 messages) of conversation
 MAX_REQUEST_SIZE_BYTES = 2 * 1024 * 1024  # 2MB request size limit
+
+MAX_CONTEXT_CHARS = 1500        # max chars of retrieved context passed to LLM per answer
+MAX_PROMPT_CONTEXT_CHARS = 800  # max chars of context passed to hallucination check
