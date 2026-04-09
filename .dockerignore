@@ -14,7 +14,7 @@ chat_history.db
 *.db
 *.sqlite3
 *.ipynb
-*.ipynb_checkpoints
+**/.ipynb_checkpoints/
 Documents/
 JioChatbotDataset_Text/
 *.pdf
