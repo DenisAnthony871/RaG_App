@@ -92,6 +92,7 @@ RaG_App/
 ├── Dockerfile         # Container image — python:3.12-slim + uv
 ├── docker-compose.yml # Service definition — Ollama on host, volumes for data
 ├── .dockerignore      # Excludes venvs, data, .env from Docker build context
+├── Makefile           # Docker helpers: up, down, logs, migrate-db
 ├── .env               # API keys (never committed to git)
 ├── .env.example       # Template for setting up .env
 ├── requirements.txt   # Python dependencies
@@ -225,8 +226,50 @@ docker-compose down
 
 - Ollama runs on your host machine, not inside the container. The container connects to it via `host.docker.internal:11434`.
 - On Linux, `host.docker.internal` resolves via the `extra_hosts` setting in `docker-compose.yml`.
-- ChromaDB and `chat_history.db` are mounted as volumes — data persists across container restarts.
+- ChromaDB is mounted as a bind-mount volume (`./chroma_db_v4`) — data persists across container restarts.
+- `chat_history.db` is stored in the **named volume** `chat_history_data` managed by Docker — data persists across restarts. Use `docker-compose down -v` only if you want to delete it.
 - Never build with `.env` inside the image — it is passed in at runtime via `env_file`.
+
+### Migrating existing chat history into Docker
+
+> **Only needed if** you previously ran the container with the old bind-mount (`./chat_history.db:/app/chat_history.db`) and want to preserve existing conversation data after upgrading to the named-volume configuration.
+
+#### Option A — One command (requires `make`)
+
+```bash
+make migrate-db
+```
+
+#### Option B — Manual steps
+
+```bash
+# 1. Back up your existing file first
+cp ./chat_history.db ./chat_history.db.bak
+
+# 2. Start the container so Docker creates the named volume
+docker-compose up -d
+
+# 3. Copy the host file into the chat_history_data named volume
+docker cp ./chat_history.db jio-rag-api:/app/chat_history.db
+
+# 4. Restart the container so it picks up the migrated database
+docker-compose restart api
+
+# 5. Verify the API is healthy
+curl http://localhost:8080/health
+```
+
+After confirming the container works correctly, you can safely remove or rename `./chat_history.db` from the host — it is no longer read by the container.
+
+#### Backing up the named volume
+
+```bash
+docker run --rm \
+  -v chat_history_data:/data \
+  -v $(pwd):/backup \
+  alpine \
+  tar czf /backup/chat_history_backup.tar.gz -C /data .
+```
 
 ---
 
