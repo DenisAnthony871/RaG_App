@@ -227,7 +227,7 @@ docker-compose down
 - Ollama runs on your host machine, not inside the container. The container connects to it via `host.docker.internal:11434`.
 - On Linux, `host.docker.internal` resolves via the `extra_hosts` setting in `docker-compose.yml`.
 - ChromaDB is mounted as a bind-mount volume (`./chroma_db_v4`) — data persists across container restarts.
-- `chat_history.db` is stored in the **named volume** `chat_history_data` managed by Docker — data persists across restarts. Use `docker-compose down -v` only if you want to delete it.
+- `chat_history.db` is stored in the **named volume** `chat_history_data` managed by Docker — data persists across restarts. The command `docker-compose down -v` uses the `-v`/`--volumes` flag which removes **all** volumes defined in the compose file and may delete other important data. To delete only the chat history without affecting others, use the safer alternative `docker volume rm chat_history_data`.
 - Never build with `.env` inside the image — it is passed in at runtime via `env_file`.
 
 ### Migrating existing chat history into Docker
@@ -249,8 +249,8 @@ cp ./chat_history.db ./chat_history.db.bak
 # 2. Start the container so Docker creates the named volume
 docker-compose up -d
 
-# 3. Copy the host file into the chat_history_data named volume
-docker cp ./chat_history.db jio-rag-api:/app/chat_history.db
+# 3. Copy the host file into the chat_history_data named volume (requires Compose v2.18+)
+docker compose cp ./chat_history.db api:/app/data/chat_history.db
 
 # 4. Restart the container so it picks up the migrated database
 docker-compose restart api
@@ -263,12 +263,21 @@ After confirming the container works correctly, you can safely remove or rename 
 
 #### Backing up the named volume
 
+*Note: The command below uses `$(pwd)` which works on Mac/Linux shells. Windows cmd.exe requires `%cd%` and PowerShell requires `${PWD}` in place of `$(pwd)`.*
+
+**Mac/Linux:**
 ```bash
-docker run --rm \
-  -v chat_history_data:/data \
-  -v $(pwd):/backup \
-  alpine \
-  tar czf /backup/chat_history_backup.tar.gz -C /data .
+docker run --rm -v chat_history_data:/data -v $(pwd):/backup alpine tar czf /backup/chat_history_backup.tar.gz -C /data .
+```
+
+**Windows (cmd):**
+```bash
+docker run --rm -v chat_history_data:/data -v %cd%:/backup alpine tar czf /backup/chat_history_backup.tar.gz -C /data .
+```
+
+**Windows (PowerShell):**
+```bash
+docker run --rm -v chat_history_data:/data -v ${PWD}:/backup alpine tar czf /backup/chat_history_backup.tar.gz -C /data .
 ```
 
 ---

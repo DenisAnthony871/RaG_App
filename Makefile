@@ -33,8 +33,8 @@ migrate-db:
 	fi
 	@echo "==> Starting container to ensure volume exists..."
 	docker-compose up -d
-	@echo "==> Copying ./chat_history.db into chat_history_data volume..."
-	docker cp ./chat_history.db jio-rag-api:/app/chat_history.db
+	@echo "==> Copying ./chat_history.db into chat_history_data volume (requires Compose v2.18+)..."
+	docker compose cp ./chat_history.db api:/app/data/chat_history.db
 	@echo "==> Restarting container..."
 	docker-compose restart api
 	@echo ""
@@ -45,5 +45,4 @@ migrate-db:
 	@echo "once you have verified the container is working correctly."
 	@echo ""
 	@echo "To back up the volume at any time:"
-	@echo "  docker run --rm -v chat_history_data:/data -v \$$(pwd):/backup alpine"
-	@echo "    tar czf /backup/chat_history_backup.tar.gz -C /data ."
+	@echo "  docker run --rm -v chat_history_data:/data -v \$$(pwd):/backup alpine tar czf /backup/chat_history_backup.tar.gz -C /data ."

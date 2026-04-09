@@ -8,7 +8,9 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 # Absolute path derived from this file's location — avoids unexpected working directory issues
-DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chat_history.db")
+DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+os.makedirs(DATA_DIR, exist_ok=True)
+DB_FILE = os.path.join(DATA_DIR, "chat_history.db")
 
 
 def get_connection() -> sqlite3.Connection:

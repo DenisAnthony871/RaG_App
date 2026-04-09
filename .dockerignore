@@ -29,6 +29,11 @@ tests/
 .idea/
 .DS_Store
 Thumbs.db
-*.md
+REMAINING_WORK.md
+BUG_REPORT.md
+PROJECT_STATUS.md
+TESTING_ENDPOINTS.md
+# README.md is intentionally included in the image
 connection.py
 debug_output.json
+
