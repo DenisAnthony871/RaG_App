@@ -1,6 +1,6 @@
 # Project Status Report — Jio RAG Support Agent
 
-**Last Updated:** March 31, 2026
+**Last Updated:** April 9, 2026
 **Repository:** DenisAnthony871/RaG_App (main branch)
 **Overall Status:** Backend Fully Functional | Live-Tested | No Frontend
 
@@ -47,6 +47,9 @@ The following was confirmed from the running uvicorn process:
 | Ollama Health Check | Complete | Startup exits cleanly if unavailable (single call in `lifespan`) |
 | CORS Middleware | ⚠️ Partial | Open (`*`) — needs locking before production |
 | Global Error Handler | Complete | Returns 500 JSON |
+| Rate Limiting | ✅ Complete | `slowapi` — 10 req/min per IP, 429 + Retry-After |
+| Unit & Integration Tests | ✅ Complete | 60%+ coverage; test_nodes, test_chat_history, test_main |
+| Tenant Isolation | ✅ Complete | `/chat` scoped per tenant — enforced in auth layer |
 | LangSmith Tracing | Configured | `LANGCHAIN_TRACING_V2=true` |
 | Swagger UI | Available | `/docs` endpoint |
 
@@ -110,8 +113,10 @@ The following was confirmed from the running uvicorn process:
 |---|----------|-------|--------|
 | A | High | CORS `allow_origins=["*"]` — needs locking before production | Open |
 | B | Medium | Generic `except Exception` in chat endpoint (BUG #4) | Open |
-| C | Medium | No rate limiting on API endpoints | Open |
-| D | Low | `connection.py` orphaned — never imported | Open |
+| C | Low | `connection.py` orphaned — never imported | Open |
+| D | — | No rate limiting on API endpoints | ✅ Fixed |
+| E | — | No unit/integration tests | ✅ Fixed |
+| F | — | Tenant isolation gap in `/chat` | ✅ Fixed |
 
 ---
 
@@ -121,8 +126,8 @@ The following was confirmed from the running uvicorn process:
 |-----|----------|-------|
 | Frontend UI | Critical | No user-facing interface exists |
 | Docker / Containerization | Critical | Cannot deploy without manual env setup |
-| Unit and Integration Tests | High | Zero test coverage |
-| Rate Limiting | High | Any valid API key can spam requests |
+| ~~Unit and Integration Tests~~ | ~~High~~ | ✅ Done — 60%+ coverage achieved |
+| ~~Rate Limiting~~ | ~~High~~ | ✅ Done — slowapi, 10 req/min per IP |
 | Deployment Config | Medium | No Dockerfile, docker-compose, or IaC |
 
 ---
@@ -143,6 +148,11 @@ The following was confirmed from the running uvicorn process:
 - `python-publish.yml` GitHub Actions workflow deleted
 - `.vscode/settings.json` test discovery path fixed to `.` with pytest enabled
 - `database.py` error message updated to `llama3.2:3b`
+- **Rate limiting** — `slowapi` integrated, 10 req/min per IP, 429 + `Retry-After`
+- **Tests** — `test_nodes.py`, `test_chat_history.py`, `test_main.py` all complete; 60%+ coverage
+- **Tenant isolation** — `/chat` enforces per-tenant key scoping (BUG #8 resolved)
+- **CI/CD** — `python-app.yml` runs full test suite on push + PR to `main`/`develop`
+- `rate_limit_handler` hardened against missing `request.client` (AttributeError fix)
 
 ---
 
@@ -169,4 +179,4 @@ curl -X POST http://127.0.0.1:8080/chat \
 
 ## Overall Assessment
 
-Backend is solid, live-tested, and production-quality. Confidence scoring, query logging, and LangGraph state management are all correctly implemented. The three remaining blockers are frontend, Docker, and tests.
+Backend is solid, live-tested, and production-quality. Confidence scoring, query logging, LangGraph state, rate limiting, auth, chat history, and all tests are correctly implemented and verified. The remaining blockers are frontend and Docker.

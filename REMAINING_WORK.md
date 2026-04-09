@@ -1,7 +1,7 @@
 # Jio RAG Project — Remaining Work
 
-**Last Updated:** March 31, 2026
-**Backend Status:** Production-Quality | **Frontend:** Not Started | **Tests:** Not Started
+**Last Updated:** April 9, 2026
+**Backend Status:** Production-Quality | **Frontend:** Not Started | **Tests:** Complete ✅
 
 ---
 
@@ -24,13 +24,16 @@
 - Hallucination router (word overlap >= 5 with context)
 - Fallback answer and graph exit for max-rewrite hits
 
-### Auth and Security
+### Auth and Security ✅
 - API key auth via `X-API-Key` header (`JIO_RAG_API_KEY` env var)
 - `secrets.compare_digest()` — timing-safe comparison
 - Invalid key logging with client IP (no PII from query logged)
 - `.env.example` template for team onboarding
+- Rate limiting via `slowapi` — 10 req/min per IP, returns 429 with `Retry-After` header
+- `rate_limit_handler` safely accesses `request.client` (no AttributeError on missing client)
+- Tenant isolation enforced on `/chat` — key scoped per tenant, cannot access other tenants' history
 
-### Chat History (SQLite)
+### Chat History (SQLite) ✅
 - `chat_history.py` — full implementation
 - `conversations` and `messages` tables with FK and cascade delete
 - Index on `conversation_id` for performance
@@ -38,6 +41,12 @@
 - Chat history loaded and injected into graph on every `/chat` call
 - `GET /conversations/{id}` — retrieve conversation and messages
 - `DELETE /conversations/{id}` — safe delete with 404 on missing
+
+### Confidence Scoring & Query Logging ✅
+- `confidence` field included in `ChatResponse` (0.9 / 0.6 / 0.3 based on overlap + rewrite count)
+- `query_logs` table in `chat_history.db` — persists every request with confidence + timing
+- `log_query()` called after every successful `/chat` response
+- `/stats` endpoint exposes aggregate query analytics
 
 ### Infrastructure and Config
 - Ollama health check on startup (`sys.exit(1)` with instructions if down)
@@ -93,53 +102,23 @@
 
 ## High — Should Fix Before Any Team Growth
 
-### 3. No Unit / Integration Tests
+### 3. ~~No Unit / Integration Tests~~ — **Complete ✅**
 
-**Impact:** Risky to refactor or extend — no safety net
-**Effort:** 2–3 days
-
-```
-[ ] pytest + pytest-asyncio setup (pytest.ini or pyproject.toml)
-[ ] conftest.py — shared fixtures (mock graph, mock DB)
-[ ] test_nodes.py:
-    [ ] validate_input: harmful input, profanity, spell correction, short allowlist
-    [ ] rewrite_question: max rewrite guard, appends not replaces
-    [ ] generate_answer: JSON detection guard
-    [ ] hallucination_router: low overlap triggers rewrite, high overlap exits
-[ ] test_chat_history.py:
-    [ ] create_conversation, save_message, load_history round-trip
-    [ ] delete_conversation returns False for missing ID
-[ ] test_main.py:
-    [ ] /health returns 200 without auth
-    [ ] /chat returns 401 without key
-    [ ] /chat returns 200 with valid key and mocked graph
-[ ] Target: 60%+ coverage
-```
+- `pytest.ini` configured with `pytest-asyncio` and `--cov`
+- `conftest.py` — shared fixtures (mock graph, mock DB)
+- `test_nodes.py` — validate_input, rewrite_question, generate_answer, hallucination_router
+- `test_chat_history.py` — CRUD round-trip, missing-ID delete
+- `test_main.py` — /health (200), /chat (401 no key, 200 mocked graph, 429 rate limit)
+- CI/CD: GitHub Actions `python-app.yml` runs full suite on push + PR to `main`/`develop`
+- Coverage: 60%+ achieved
 
 ---
 
-### 4. No Rate Limiting
+### 4. ~~No Rate Limiting~~ — **Complete ✅**
 
-**Impact:** A valid API key holder can send unlimited requests, blocking Ollama for other users
-**Effort:** 2–4 hours
-
-```
-[ ] Add slowapi (FastAPI rate limit middleware)
-[ ] Limit /chat to 10 requests per minute per API key or IP
-[ ] Return 429 with Retry-After header on breach
-```
-
-Example:
-```python
-from slowapi import Limiter
-from slowapi.util import get_remote_address
-limiter = Limiter(key_func=get_remote_address)
-
-@app.post("/chat")
-@limiter.limit("10/minute")
-def chat(request: Request, ...):
-    ...
-```
+- `slowapi` integrated — 10 req/min per IP on `/chat`
+- Returns 429 with `Retry-After` header on breach
+- `rate_limit_handler` guards against missing `request.client` (no AttributeError)
 
 ---
 
@@ -213,9 +192,8 @@ def chat(request: Request, ...):
 
 | Priority | Count | Estimated Effort |
 |----------|-------|-----------------|
-| Complete | ~35 items | Done |
+| Complete | ~45 items | Done ✅ |
 | Critical (blocks users) | 2 items | ~1 week |
-| High (team scaling) | 2 items | ~3–4 days |
 | Important (code quality) | 4 items | ~1–2 hours |
 | Nice-to-have | 6 items | Future |
 
@@ -242,12 +220,12 @@ def chat(request: Request, ...):
 - `.rhdarc.json`
 - `connection.py` — orphaned, needs decision
 
-**Tests** — none exist:
-- `test_nodes.py` — not created
-- `test_chat_history.py` — not created
-- `test_main.py` — not created
-- `conftest.py` — not created
-- `pytest.ini` — not created
+**Tests** — all complete ✅:
+- `test_nodes.py` — complete
+- `test_chat_history.py` — complete
+- `test_main.py` — complete (includes rate limit, auth, tenant isolation tests)
+- `conftest.py` — complete
+- `pytest.ini` — configured
 
 **Deployment** — none exist:
 - `Dockerfile` — not created
@@ -260,4 +238,4 @@ def chat(request: Request, ...):
 
 ---
 
-Total remaining effort to a production-ready app with frontend: approximately 2–3 weeks.
+Total remaining effort to a production-ready app with frontend: approximately 1–2 weeks (tests, rate limiting, auth, chat history, confidence scoring, and query logging are all done).

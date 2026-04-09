@@ -70,6 +70,10 @@ test_results*.txt
 debug_output.json
 *.json.bak
 
+# Internal planning / security docs — not for version control
+BUG_REPORT.md
+SECURITY_DIRECTIVE.md
+
 # OS Files
 desktop.ini
 
