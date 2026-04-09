@@ -70,9 +70,14 @@ test_results*.txt
 debug_output.json
 *.json.bak
 
-# Internal planning / security docs — not for version control
+# Internal planning / operational docs — not for version control
+# BUG_REPORT.md  : live internal bug tracker (history-checked: no credentials found)
+#                  The public GitHub issue template is at .github/ISSUE_TEMPLATE/bug_report.md
+# SECURITY_DIRECTIVE.md : AI implementation planning spec — internal use only
 BUG_REPORT.md
 SECURITY_DIRECTIVE.md
+# Re-include the versioned GitHub issue template (Windows case-insensitive match workaround)
+!.github/ISSUE_TEMPLATE/bug_report.md
 
 # OS Files
 desktop.ini
