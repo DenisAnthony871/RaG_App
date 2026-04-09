@@ -234,10 +234,10 @@
 - `conftest.py` — complete
 - `pytest.ini` — configured
 
-**Deployment** — none exist:
-- `Dockerfile` — not created
-- `docker-compose.yml` — not created
-- `.dockerignore` — not created
+**Deployment** — Docker complete ✅:
+- `Dockerfile` — complete
+- `docker-compose.yml` — complete (Ollama on host, volumes for chromadb + sqlite)
+- `.dockerignore` — complete
 - Cloud IaC (Terraform / Bicep) — not created
 
 **Frontend** — nothing exists:
@@ -245,4 +245,4 @@
 
 ---
 
-Total remaining effort to a production-ready app with frontend: approximately 1–2 weeks (tests, rate limiting, auth, chat history, confidence scoring, and query logging are all done).
+Total remaining effort to a production-ready app with frontend: approximately 1 week (tests, rate limiting, auth, chat history, confidence scoring, query logging, context compression, and Docker are all done).

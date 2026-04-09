@@ -89,6 +89,9 @@ RaG_App/
 ├── chat_history.py    # SQLite CRUD — conversations and messages tables
 ├── config.py          # All configuration constants and keyword lists
 ├── rag.ipynb          # Jupyter notebook — data ingestion and vector indexing
+├── Dockerfile         # Container image — python:3.12-slim + uv
+├── docker-compose.yml # Service definition — Ollama on host, volumes for data
+├── .dockerignore      # Excludes venvs, data, .env from Docker build context
 ├── .env               # API keys (never committed to git)
 ├── .env.example       # Template for setting up .env
 ├── requirements.txt   # Python dependencies
@@ -185,6 +188,45 @@ python main.py
 The API starts on `http://0.0.0.0:8080` and is accessible at:
 - **API base:** `http://127.0.0.1:8080`
 - **Swagger UI:** `http://127.0.0.1:8080/docs`
+
+---
+
+## Running with Docker
+
+Docker runs the FastAPI backend in a container while Ollama continues to run on your host machine.
+
+### Prerequisites
+
+- Docker and Docker Compose installed
+- Ollama running on your host (`ollama serve`)
+- ChromaDB populated — run `rag.ipynb` first to build `./chroma_db_v4`
+
+### Step 1 — Build and start
+
+```bash
+docker-compose up --build
+```
+
+The API will be available at `http://localhost:8080`.
+
+### Step 2 — Verify
+
+```bash
+curl http://localhost:8080/health
+```
+
+### Step 3 — Stop
+
+```bash
+docker-compose down
+```
+
+### Notes
+
+- Ollama runs on your host machine, not inside the container. The container connects to it via `host.docker.internal:11434`.
+- On Linux, `host.docker.internal` resolves via the `extra_hosts` setting in `docker-compose.yml`.
+- ChromaDB and `chat_history.db` are mounted as volumes — data persists across container restarts.
+- Never build with `.env` inside the image — it is passed in at runtime via `env_file`.
 
 ---
 

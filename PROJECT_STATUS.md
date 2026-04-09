@@ -51,6 +51,7 @@ The following was confirmed from the running uvicorn process:
 | Unit & Integration Tests | ✅ Complete | 60%+ coverage; test_nodes, test_chat_history, test_main |
 | Tenant Isolation | ✅ Complete | `/chat` scoped per tenant — enforced in auth layer |
 | Context Compression | ✅ Complete | `MAX_CONTEXT_CHARS=1500` in generate_answer; `MAX_PROMPT_CONTEXT_CHARS=800` in check_hallucination |
+| Docker / Containerization | ✅ Complete | `Dockerfile`, `docker-compose.yml`, `.dockerignore` — Ollama on host, volumes for ChromaDB + SQLite |
 | LangSmith Tracing | Configured | `LANGCHAIN_TRACING_V2=true` |
 | Swagger UI | Available | `/docs` endpoint |
 
@@ -126,10 +127,10 @@ The following was confirmed from the running uvicorn process:
 | Gap | Priority | Notes |
 |-----|----------|-------|
 | Frontend UI | Critical | No user-facing interface exists |
-| Docker / Containerization | Critical | Cannot deploy without manual env setup |
+| ~~Docker / Containerization~~ | ~~Critical~~ | ✅ Done — `Dockerfile` + `docker-compose.yml` + `.dockerignore` |
 | ~~Unit and Integration Tests~~ | ~~High~~ | ✅ Done — 60%+ coverage achieved |
 | ~~Rate Limiting~~ | ~~High~~ | ✅ Done — slowapi, 10 req/min per IP |
-| Deployment Config | Medium | No Dockerfile, docker-compose, or IaC |
+| Deployment Config | Medium | Cloud IaC (Terraform / Bicep) not created |
 
 ---
 
@@ -155,6 +156,8 @@ The following was confirmed from the running uvicorn process:
 - **CI/CD** — `python-app.yml` runs full test suite on push + PR to `main`/`develop`
 - `rate_limit_handler` hardened against missing `request.client` (AttributeError fix)
 - **Context compression** — `MAX_CONTEXT_CHARS=1500` in `generate_answer`; `MAX_PROMPT_CONTEXT_CHARS=800` in `check_hallucination`
+- **Docker** — `Dockerfile` (python:3.12-slim + uv), `docker-compose.yml` (host Ollama, volumes), `.dockerignore`
+- **README** — Docker section added (build, verify, stop, notes)
 
 ---
 
@@ -181,4 +184,4 @@ curl -X POST http://127.0.0.1:8080/chat \
 
 ## Overall Assessment
 
-Backend is solid, live-tested, and production-quality. Confidence scoring, query logging, LangGraph state, rate limiting, auth, chat history, context compression, and all tests are correctly implemented and verified. The remaining blockers are frontend and Docker.
+Backend is solid, live-tested, and production-quality. Confidence scoring, query logging, LangGraph state, rate limiting, auth, chat history, context compression, Docker, and all tests are correctly implemented and verified. The only remaining blocker is the frontend.
