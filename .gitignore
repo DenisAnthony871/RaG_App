@@ -76,6 +76,12 @@ debug_output.json
 # SECURITY_DIRECTIVE.md : AI implementation planning spec — internal use only
 BUG_REPORT.md
 SECURITY_DIRECTIVE.md
+TEST_DIRECTIVE.md
+DOCKER_DIRECTIVE.md
+COMPRESSION_DIRECTIVE.md
+PROJECT_STATUS.md
+REMAINING_WORK.md
+TESTING_ENDPOINTS.md
 # Re-include the versioned GitHub issue template (Windows case-insensitive match workaround)
 !.github/ISSUE_TEMPLATE/bug_report.md
 

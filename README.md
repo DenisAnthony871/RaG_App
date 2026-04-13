@@ -26,7 +26,7 @@ An AI-powered customer support chatbot for Jio services that runs entirely on yo
 
 When a user sends a question, it passes through an 8-node LangGraph pipeline:
 
-```
+```text
 User Question
       |
 1. validate_input          — spell correct, block harmful/profanity/gibberish input
@@ -61,7 +61,7 @@ User Question
 ## Tech Stack
 
 | Tool | Version / Model | Purpose |
-|------|----------------|---------|
+| ------ | ---------------- | --------- |
 | [FastAPI](https://fastapi.tiangolo.com) | 0.110+ | REST API backend |
 | [LangGraph](https://github.com/langchain-ai/langgraph) | latest | Agent graph orchestration |
 | [LangChain](https://python.langchain.com) | latest | LLM chains and tooling |
@@ -78,7 +78,7 @@ User Question
 
 ## Project Structure
 
-```
+```text
 RaG_App/
 ├── main.py            # FastAPI app — endpoints, auth, conversation wiring
 ├── rag_graph.py       # LangGraph graph assembly — wires all nodes together
@@ -187,6 +187,7 @@ python main.py
 ```
 
 The API starts on `http://0.0.0.0:8080` and is accessible at:
+
 - **API base:** `http://127.0.0.1:8080`
 - **Swagger UI:** `http://127.0.0.1:8080/docs`
 
@@ -196,7 +197,7 @@ The API starts on `http://0.0.0.0:8080` and is accessible at:
 
 Docker runs the FastAPI backend in a container while Ollama continues to run on your host machine.
 
-### Prerequisites
+### Docker Prerequisites
 
 - Docker and Docker Compose installed
 - Ollama running on your host (`ollama serve`)
@@ -250,7 +251,7 @@ cp ./chat_history.db ./chat_history.db.bak
 docker-compose up -d
 
 # 3. Copy the host file into the chat_history_data named volume (requires Compose v2.18+)
-docker compose cp ./chat_history.db api:/app/data/chat_history.db
+docker compose cp ./chat_history.db api:/app/chat_history.db
 
 # 4. Restart the container so it picks up the migrated database
 docker-compose restart api
@@ -266,16 +267,19 @@ After confirming the container works correctly, you can safely remove or rename 
 *Note: The command below uses `$(pwd)` which works on Mac/Linux shells. Windows cmd.exe requires `%cd%` and PowerShell requires `${PWD}` in place of `$(pwd)`.*
 
 **Mac/Linux:**
+
 ```bash
 docker run --rm -v chat_history_data:/data -v $(pwd):/backup alpine tar czf /backup/chat_history_backup.tar.gz -C /data .
 ```
 
 **Windows (cmd):**
+
 ```bash
 docker run --rm -v chat_history_data:/data -v %cd%:/backup alpine tar czf /backup/chat_history_backup.tar.gz -C /data .
 ```
 
 **Windows (PowerShell):**
+
 ```bash
 docker run --rm -v chat_history_data:/data -v ${PWD}:/backup alpine tar czf /backup/chat_history_backup.tar.gz -C /data .
 ```
@@ -285,7 +289,7 @@ docker run --rm -v chat_history_data:/data -v ${PWD}:/backup alpine tar czf /bac
 ## API Endpoints
 
 | Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
+| -------- | ---------- | ------ | ------------- |
 | GET | `/health` | None | Server liveness check |
 | GET | `/stats` | Required | Vector store document count |
 | POST | `/chat` | Required | Send a question, get an answer |
@@ -338,7 +342,7 @@ curl -X POST http://127.0.0.1:8080/chat \
 All settings are in `config.py`. You can adjust these without modifying the core pipeline logic:
 
 | Variable | Default | Description |
-|----------|---------|-------------|
+| ---------- | --------- | ------------- |
 | `DB_PATH` | `./chroma_db_v4` | Where ChromaDB stores vectors |
 | `COLLECTION_NAME` | `jio_knowledge_base` | ChromaDB collection name |
 | `LLM_MODEL` | `llama3.2:3b` | Ollama model for answer generation |
@@ -371,7 +375,7 @@ Expected when running `llama3.2:3b` on CPU — allow 3–10 seconds per request.
 
 ---
 
-## Notes
+## General Notes
 
 - ChromaDB folders (`chroma_db_v4`, etc.) are excluded from the repo — rebuild locally using `rag.ipynb`
 - Ollama must be running before starting the API (`ollama serve`)

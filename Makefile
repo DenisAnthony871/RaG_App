@@ -34,7 +34,7 @@ migrate-db:
 	@echo "==> Starting container to ensure volume exists..."
 	docker-compose up -d
 	@echo "==> Copying ./chat_history.db into chat_history_data volume (requires Compose v2.18+)..."
-	docker compose cp ./chat_history.db api:/app/data/chat_history.db
+	docker compose cp ./chat_history.db api:/app/chat_history.db
 	@echo "==> Restarting container..."
 	docker-compose restart api
 	@echo ""
