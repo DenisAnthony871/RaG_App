@@ -1,4 +1,5 @@
 import logging
+import os
 import requests
 import sys
 from langchain_chroma import Chroma
@@ -6,6 +7,10 @@ from langchain_ollama import OllamaEmbeddings
 from config import DB_PATH, COLLECTION_NAME, EMBEDDING_MODEL, RETRIEVER_K
 
 logger = logging.getLogger(__name__)
+
+# Respect OLLAMA_HOST from environment so container → host routing works.
+# Default to localhost for local dev without Docker.
+_OLLAMA_BASE = os.environ.get("OLLAMA_HOST", "http://localhost:11434").rstrip("/")
 
 logger.info(f"Loading Chroma store: {DB_PATH}, collection: {COLLECTION_NAME}")
 
@@ -16,8 +21,8 @@ def check_ollama_health(timeout=5):
     Raises SystemExit with clear error message if unavailable.
     """
     try:
-        response = requests.get("http://localhost:11434/api/tags", timeout=timeout)
-        
+        response = requests.get(f"{_OLLAMA_BASE}/api/tags", timeout=timeout)
+
         # Check if response status is successful
         if response.status_code != 200:
             logger.error(
@@ -27,17 +32,17 @@ def check_ollama_health(timeout=5):
                 f"\n\nOllama is required to run this application."
                 f"\n\nHow to fix:"
                 f"\n1. Verify Ollama is running: ollama serve"
-                f"\n2. Check Ollama is available at http://localhost:11434"
+                f"\n2. Check Ollama is available at {_OLLAMA_BASE}"
                 f"\n3. Then restart this application"
             )
             sys.exit(1)
-        
+
         logger.info("✓ Ollama is running and accessible")
         return True
-        
+
     except requests.RequestException as e:
         logger.error(
-            f"✗ CRITICAL: Cannot connect to Ollama at http://localhost:11434"
+            f"✗ CRITICAL: Cannot connect to Ollama at {_OLLAMA_BASE}"
             f"\n\nOllama is required to run this application."
             f"\n\nHow to fix:"
             f"\n1. Download Ollama from https://ollama.com"
@@ -53,7 +58,7 @@ def check_ollama_health(timeout=5):
 # objects are used. Do not call check_ollama_health() here — it would run twice
 # on startup and also fire during any import-time test setup.
 
-embeddings = OllamaEmbeddings(model=EMBEDDING_MODEL)
+embeddings = OllamaEmbeddings(model=EMBEDDING_MODEL, base_url=_OLLAMA_BASE)
 
 vectorstore = Chroma(
     persist_directory=DB_PATH,

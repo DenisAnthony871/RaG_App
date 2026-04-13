@@ -1,9 +1,11 @@
+import os
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_ollama import ChatOllama
 from config import LLM_MODEL
 
-response_model = ChatOllama(model=LLM_MODEL, timeout=60)
+_OLLAMA_BASE = os.environ.get("OLLAMA_HOST", "http://localhost:11434").rstrip("/")
+response_model = ChatOllama(model=LLM_MODEL, timeout=60, base_url=_OLLAMA_BASE)
 
 REWRITE_PROMPT = ChatPromptTemplate.from_messages([
     (
