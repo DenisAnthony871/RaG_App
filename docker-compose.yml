@@ -12,9 +12,10 @@ services:
     volumes:
       # Persist ChromaDB vector store
       - ./chroma_db_v4:/app/chroma_db_v4
-      # Named volume for SQLite chat history — avoids Docker creating a directory
-      # when the file doesn't exist yet (which would break SQLite on first run)
-      - chat_history_data:/app/chat_history.db
+      # Named volume for SQLite chat history — mounted at a directory so Docker
+      # does not create a directory where SQLite expects to write a file.
+      # The application opens the DB at /app/data/chat_history.db inside this directory.
+      - chat_history_data:/app/data
     extra_hosts:
       # Required on Linux to resolve host.docker.internal
       - "host.docker.internal:host-gateway"
@@ -27,6 +28,6 @@ services:
       start_period: 15s
 
 volumes:
-  # Docker manages this file — prevents directory-creation bug with SQLite bind-mounts
+  # Docker manages this directory — the app creates chat_history.db inside it at runtime
   chat_history_data:
 

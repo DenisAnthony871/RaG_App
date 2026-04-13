@@ -7,8 +7,18 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-# Absolute path derived from this file's location — avoids unexpected working directory issues
-DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chat_history.db")
+# Inside the Docker container the named volume is mounted at /app/data (a directory),
+# so the DB file must live at /app/data/chat_history.db.
+# During local development /app/data does not exist, so we fall back to a file
+# alongside this module (e.g. ./chat_history.db relative to the project root).
+_DOCKER_DATA_DIR = "/app/data"
+if os.path.isdir(_DOCKER_DATA_DIR):
+    DB_FILE = os.path.join(_DOCKER_DATA_DIR, "chat_history.db")
+else:
+    DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chat_history.db")
+
+# Ensure the parent directory exists before SQLite tries to create the file
+os.makedirs(os.path.dirname(DB_FILE), exist_ok=True)
 
 
 def get_connection() -> sqlite3.Connection:

@@ -251,7 +251,7 @@ cp ./chat_history.db ./chat_history.db.bak
 docker-compose up -d
 
 # 3. Copy the host file into the chat_history_data named volume (requires Compose v2.18+)
-docker compose cp ./chat_history.db api:/app/chat_history.db
+docker compose cp ./chat_history.db api:/app/data/chat_history.db
 
 # 4. Restart the container so it picks up the migrated database
 docker-compose restart api
