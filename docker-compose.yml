@@ -7,8 +7,8 @@ services:
     env_file:
       - .env
     environment:
-      # Point Ollama to host machine — required since Ollama runs on host, not in container
-      - OLLAMA_HOST=http://host.docker.internal:11434
+      # Point Ollama to host machine — overridable via host env for Linux / custom setups
+      - OLLAMA_HOST=${OLLAMA_HOST:-http://host.docker.internal:11434}
     volumes:
       # Persist ChromaDB vector store
       - ./chroma_db_v4:/app/chroma_db_v4

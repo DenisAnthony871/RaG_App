@@ -66,7 +66,8 @@ vectorstore = Chroma(
     embedding_function=embeddings,
 )
 
-count = len(vectorstore.get().get("ids", []))
+result = vectorstore.get()
+count = len(result.get("ids", []) if result else [])
 logger.info(f"Stored vectors in Chroma: {count}")
 
 retriever = vectorstore.as_retriever(search_kwargs={"k": RETRIEVER_K})

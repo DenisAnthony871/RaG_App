@@ -1,3 +1,4 @@
+import hashlib
 import time
 import logging
 import uuid
@@ -63,6 +64,16 @@ async def verify_api_key(request: Request, api_key: str = Security(api_key_heade
         logger.warning(f"Rejected request — invalid or missing API key | IP: {client_ip}")
         raise HTTPException(status_code=401, detail="Invalid or missing API key")
     return api_key
+
+
+def _hash_owner_id(api_key: str) -> str:
+    """Derive a non-reversible owner identifier from the raw API key.
+
+    Storing the raw secret as a DB row identifier means a database dump,
+    log line, or accidental SELECT * would leak the active credential.
+    SHA-256 is collision-resistant, stable, and one-way.
+    """
+    return hashlib.sha256(api_key.encode()).hexdigest()
 
 
 class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
@@ -202,10 +213,10 @@ async def chat(request: Request, body: ChatRequest, api_key: str = Security(veri
     # by a different key — same 404 behaviour as GET/DELETE /conversations/{id}.
     conversation_id = body.conversation_id
     if conversation_id:
-        if not get_conversation_summary(conversation_id, owner_id=api_key):
+        if not get_conversation_summary(conversation_id, owner_id=_hash_owner_id(api_key)):
             raise HTTPException(status_code=404, detail="Conversation not found")
     else:
-        conversation_id = create_conversation(owner_id=api_key)
+        conversation_id = create_conversation(owner_id=_hash_owner_id(api_key))
         logger.info(f"[{request_id}] New conversation: {conversation_id}")
 
     # Load history and build message list
@@ -283,7 +294,7 @@ async def chat(request: Request, body: ChatRequest, api_key: str = Security(veri
 
 @app.get("/conversations/{conversation_id}")
 def get_conversation(conversation_id: str, api_key: str = Security(verify_api_key)):
-    summary = get_conversation_summary(conversation_id, owner_id=api_key)
+    summary = get_conversation_summary(conversation_id, owner_id=_hash_owner_id(api_key))
     if not summary:
         raise HTTPException(status_code=404, detail="Conversation not found")
     history = load_history(conversation_id)
@@ -292,7 +303,7 @@ def get_conversation(conversation_id: str, api_key: str = Security(verify_api_ke
 
 @app.delete("/conversations/{conversation_id}")
 def remove_conversation(conversation_id: str, api_key: str = Security(verify_api_key)):
-    deleted = delete_conversation(conversation_id, owner_id=api_key)
+    deleted = delete_conversation(conversation_id, owner_id=_hash_owner_id(api_key))
     if not deleted:
         raise HTTPException(status_code=404, detail="Conversation not found")
     return {"status": "deleted", "conversation_id": conversation_id}

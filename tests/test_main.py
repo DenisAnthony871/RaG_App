@@ -67,8 +67,10 @@ def test_get_conversation_with_auth(client, auth_headers, mock_db):
     
     response = client.get("/conversations/test-id", headers=auth_headers)
     
-    # Assert side effects — owner_id is now passed for tenant isolation
-    mock_db["get_conversation_summary"].assert_called_with("test-id", owner_id="test-api-key-12345")
+    # Assert side effects — owner_id is now a SHA-256 hash of the API key (not the raw secret)
+    import hashlib
+    expected_owner = hashlib.sha256(b"test-api-key-12345").hexdigest()
+    mock_db["get_conversation_summary"].assert_called_with("test-id", owner_id=expected_owner)
     mock_db["load_history"].assert_called_with("test-id")
     
     assert response.status_code == 200
