@@ -119,6 +119,38 @@ def save_message(conversation_id: str, role: str, content: str):
         conn.commit()
 
 
+def save_messages_batch(conversation_id: str, messages: list[tuple[str, str]]):
+    """Save multiple messages atomically in a single transaction.
+
+    Each entry in *messages* is a (role, content) tuple.
+    If any insert fails the entire batch is rolled back — no orphaned rows.
+    """
+    now = datetime.now(timezone.utc).isoformat()
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT 1 FROM conversations WHERE conversation_id = ?",
+            (conversation_id,)
+        ).fetchone()
+        if not row:
+            raise ValueError(f"Cannot save messages — conversation '{conversation_id}' does not exist")
+        for role, content in messages:
+            conn.execute(
+                "INSERT INTO messages (conversation_id, role, content, timestamp) VALUES (?, ?, ?, ?)",
+                (conversation_id, role, content, now)
+            )
+        conn.execute(
+            "UPDATE conversations SET updated_at = ? WHERE conversation_id = ?",
+            (now, conversation_id)
+        )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
 def load_history(conversation_id: str) -> list[dict]:
     """Load full message history for a conversation"""
     with get_connection() as conn:

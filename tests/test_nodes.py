@@ -138,8 +138,19 @@ def test_hallucination_router():
     class ContextMsg:
         type = "tool"
         content = "hello world one two three four five"
-    state = {"messages": [ContextMsg(), AIMessage(content="unrelated text")]}
+
+    # Low confidence (< 0.6) should route to rewrite
+    state = {"messages": [ContextMsg(), AIMessage(content="unrelated text")], "confidence": 0.3}
     assert hallucination_router(state) == "rewrite_question"
 
-    state = {"messages": [ContextMsg(), AIMessage(content="hello world one two three four five")]}
+    # High confidence (>= 0.6) should end
+    state = {"messages": [ContextMsg(), AIMessage(content="hello world one two three four five")], "confidence": 0.9}
     assert hallucination_router(state) == "end"
+
+    # No context should end (fallback path)
+    class EmptyToolMsg:
+        type = "tool"
+        content = "No results found"
+    state = {"messages": [EmptyToolMsg(), AIMessage(content="answer")], "confidence": 0.3}
+    assert hallucination_router(state) == "end"
+

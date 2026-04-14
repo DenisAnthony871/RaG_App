@@ -25,6 +25,7 @@ from chat_history import (
     init_db,
     create_conversation,
     save_message,
+    save_messages_batch,
     load_history,
     get_conversation_summary,
     delete_conversation,
@@ -246,9 +247,12 @@ async def chat(request: Request, body: ChatRequest, api_key: str = Security(veri
         confidence = result.get("confidence", 0.0)
         response_time = (time.time() - start) * 1000
 
-        # Persist both turns
-        save_message(conversation_id, "human", body.query)
-        save_message(conversation_id, "ai", answer)
+        # Persist both turns atomically — if either insert fails the entire
+        # batch is rolled back, preventing orphaned human-only messages.
+        try:
+            save_messages_batch(conversation_id, [("human", body.query), ("ai", answer)])
+        except Exception as save_err:
+            logger.error(f"[{request_id}] Failed to persist messages: {save_err}", exc_info=True)
 
         try:
             log_query(

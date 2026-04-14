@@ -119,9 +119,7 @@ def validate_input(state: JioState):
     if corrected != cleaned:
         logger.info("Spell correction applied to user input")
 
-    # Replace last message with corrected version (preserve history)
-    messages[-1] = HumanMessage(content=corrected)
-    return {"messages": messages}
+    return {"messages": [HumanMessage(content=corrected)]}
 
 
 def after_validate(state: JioState) -> str:
@@ -334,19 +332,11 @@ def check_hallucination(state: JioState) -> dict:
 # Pure routing function — reads state only, returns a routing string.
 # Confidence scoring is handled upstream in check_hallucination node.
 def hallucination_router(state: JioState) -> str:
-    messages = state["messages"]
-    context = next((msg.content for msg in reversed(messages) if msg.type == "tool"), "")
-
+    context = next((msg.content for msg in reversed(state["messages"]) if msg.type == "tool"), "")
     if not context or "No results found" in context:
         return "end"
-
-    answer = messages[-1].content if messages else ""
-    context_words = set(context.lower().split())
-    answer_words = set(answer.lower().split())
-    overlap = len(answer_words & context_words)
-
-    if overlap < 5:
-        logger.warning(f"Low overlap ({overlap} words), answer may not be grounded")
+    confidence = state.get("confidence", 0.0)
+    if confidence < 0.6:
+        logger.warning(f"Low confidence ({confidence}), routing to rewrite")
         return "rewrite_question"
-
     return "end"
