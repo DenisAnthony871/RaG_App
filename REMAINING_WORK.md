@@ -8,6 +8,7 @@
 ## Completed
 
 ### Backend Core
+
 - FastAPI app with lifespan context manager
 - 8-node LangGraph RAG pipeline (validate, enrich, retrieve, grade, rewrite, generate, format, hallucination check)
 - ChromaDB vector store (`chroma_db_v4`, `nomic-embed-text` embeddings)
@@ -25,6 +26,7 @@
 - Fallback answer and graph exit for max-rewrite hits
 
 ### Auth and Security ✅
+
 - API key auth via `X-API-Key` header (`JIO_RAG_API_KEY` env var)
 - `secrets.compare_digest()` — timing-safe comparison
 - Invalid key logging with client IP (no PII from query logged)
@@ -34,6 +36,7 @@
 - Tenant isolation enforced on `/chat` — key scoped per tenant, cannot access other tenants' history
 
 ### Chat History (SQLite) ✅
+
 - `chat_history.py` — full implementation
 - `conversations` and `messages` tables with FK and cascade delete
 - Index on `conversation_id` for performance
@@ -43,12 +46,14 @@
 - `DELETE /conversations/{id}` — safe delete with 404 on missing
 
 ### Confidence Scoring & Query Logging ✅
+
 - `confidence` field included in `ChatResponse` (0.9 / 0.6 / 0.3 based on overlap + rewrite count)
 - `query_logs` table in `chat_history.db` — persists every request with confidence + timing
 - `log_query()` called after every successful `/chat` response
 - `/stats` endpoint exposes aggregate query analytics
 
 ### Context Compression ✅
+
 - `MAX_CONTEXT_CHARS = 1500` — retrieved context truncated before being passed to LLM
 - `MAX_PROMPT_CONTEXT_CHARS = 800` — context truncated before hallucination word-overlap check
 - Truncation applied in `generate_answer` with `logger.info` on hit
@@ -56,6 +61,7 @@
 - No LLM summarisation (latency constraint) — simple char-truncation only
 
 ### Infrastructure and Config
+
 - Ollama health check on startup (`sys.exit(1)` with instructions if down)
 - `.env` file with all required variables
 - `.gitignore` — excludes `.env`, ChromaDB folders, notebooks, `__pycache__`, internal docs
@@ -66,6 +72,7 @@
 - Global exception handler returns 500 JSON
 
 ### Documentation
+
 - `README.md` — setup guide, pipeline diagram, API reference, troubleshooting
 - `REMAINING_WORK.md` — file-by-file status, current issues
 - `BUG_REPORT.md` — all bugs tracked (5 fixed, 3 open)
@@ -81,14 +88,14 @@
 **Effort:** 3–5 days
 **Recommended:** React + Vite SPA
 
-```
+```text
 [ ] Choose framework (React / Vue / Streamlit)
 [ ] Design chat UI (input box, message history, typing indicator)
 [ ] Wire to /chat endpoint with X-API-Key header
 [ ] Display conversation_id for multi-turn sessions
 [ ] Handle 401 / 500 errors gracefully in UI
 [ ] Deploy frontend (Vercel or Netlify for quick MVP)
-```
+```text
 
 ---
 
@@ -97,13 +104,13 @@
 **Impact:** Cannot deploy to cloud without manual environment setup on each host
 **Effort:** 1 day
 
-```
+```text
 [ ] Dockerfile for the FastAPI app
 [ ] docker-compose.yml to orchestrate API + Ollama
 [ ] .dockerignore (exclude chroma_db, .env, .venv, __pycache__)
 [ ] Test: docker-compose up -> /health returns 200
 [ ] Document docker setup in README
-```
+```text
 
 ---
 
@@ -136,11 +143,11 @@
 **File:** `main.py` L70
 **Effort:** 15 minutes
 
-```
+```text
 [ ] Replace allow_origins=["*"] with actual frontend URL(s)
 [ ] Add ALLOWED_ORIGINS to .env
 [ ] Read from env in main.py
-```
+```text
 
 ---
 
@@ -149,10 +156,10 @@
 **File:** `database.py` L53
 **Effort:** 5 minutes
 
-```
+```text
 [ ] Remove module-level check_ollama_health() call from database.py
 [ ] Keep only the lifespan() call in main.py
-```
+```text
 
 ---
 
@@ -161,11 +168,11 @@
 **File:** `main.py` L166–168
 **Effort:** 30 minutes
 
-```
+```text
 [ ] Split bare except Exception into IndexError, TimeoutError, Exception
 [ ] Return appropriate HTTP status codes (500, 504)
 [ ] See BUG #4 in BUG_REPORT.md for the code sample
-```
+```text
 
 ---
 
@@ -174,18 +181,18 @@
 **File:** `connection.py`
 **Effort:** 15 minutes
 
-```
+```text
 [ ] Confirm no module imports connection.py
 [ ] If unused -> delete file and commit
 [ ] If intentional -> add docstring explaining its planned purpose
-```
+```text
 
 ---
 
 ## Nice-to-Have (Future Phases)
 
 | Feature | Impact | Effort |
-|---------|--------|--------|
+| --- | --- | --- |
 | Admin dashboard (conversation analytics) | Monitor usage | 3–5 days |
 | Multi-language support | Wider audience | 2–3 days |
 | Request caching (Redis or in-memory) | Reduce Ollama load | 1 day |
@@ -198,7 +205,7 @@
 ## Summary by Priority
 
 | Priority | Count | Estimated Effort |
-|----------|-------|-----------------|
+| --- | --- | --- |
 | Complete | ~45 items | Done ✅ |
 | Critical (blocks users) | 2 items | ~1 week |
 | Important (code quality) | 4 items | ~1–2 hours |
@@ -241,6 +248,7 @@
 - Cloud IaC (Terraform / Bicep) — not created
 
 **Frontend** — nothing exists:
+
 - No frontend directory or files
 
 ---

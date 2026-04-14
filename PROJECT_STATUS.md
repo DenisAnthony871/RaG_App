@@ -22,7 +22,7 @@ The following was confirmed from the running uvicorn process:
 ## Current Implementation Summary
 
 | Layer | Status | Notes |
-|-------|--------|-------|
+| --- | --- | --- |
 | FastAPI Backend | Complete | `python main.py` runs on `0.0.0.0:8080` |
 | RAG Pipeline (LangGraph) | Complete | 9-node graph with `JioState` custom state |
 | Custom Graph State | Complete | `JioState` — carries `messages`, `confidence`, `rewrite_count` |
@@ -60,6 +60,7 @@ The following was confirmed from the running uvicorn process:
 ## File-by-File Status
 
 ### `main.py` — Production-Quality
+
 - `ChatResponse` model includes `confidence: float`
 - `graph.invoke` passes full initial `JioState`: `{"messages": ..., "rewrite_count": 0, "confidence": 0.0}`
 - `log_query()` called after every successful response — persists to `query_logs` table
@@ -67,6 +68,7 @@ The following was confirmed from the running uvicorn process:
 - Known issue: CORS `allow_origins=["*"]` — open to any origin
 
 ### `nodes.py` — Complete + Live-Tested
+
 - `JioState(TypedDict)` defined with `messages`, `confidence`, `rewrite_count`
 - All 9 function signatures use `JioState` — `MessagesState` fully removed
 - `rewrite_count` read from `state.get("rewrite_count", 0)` and incremented on each rewrite
@@ -75,36 +77,44 @@ The following was confirmed from the running uvicorn process:
 - Fallback message includes Jio support contacts (toll-free, MyJio App, self-care)
 
 ### `rag_graph.py` — Complete
+
 - 9-node graph: validate, enrich, query/respond, retrieve, rewrite, generate, format, check_hallucination, (router)
 - `StateGraph(JioState)` — custom state throughout
 - `format_answer` edges to `check_hallucination` (node) then `hallucination_router` (conditional edge)
 - `MessagesState` fully removed
 
 ### `chat_history.py` — Complete
+
 - 3 tables: `conversations`, `messages`, `query_logs`
 - `query_logs` schema: `conversation_id`, `request_id`, `query`, `response_time_ms`, `confidence`, `rewrite_count`, `timestamp`
 - `log_query()` function inserts one row per request
 - No FK from `query_logs` to `conversations` — logs survive conversation deletion
 
 ### `database.py` — Complete
+
 - Module-level `check_ollama_health()` call removed (was BUG #7) — lifespan only
 - Error message correctly references `llama3.2:3b`
 
-### `rag_graph.py` — Complete
+### `rag_graph.py` (Cleanups) — Complete
+
 - Dead imports `DB_PATH`, `COLLECTION_NAME` from config removed
 - `python-publish.yml` workflow deleted
 
 ### `config.py` — Complete
+
 - `LLM_MODEL = "llama3.2:3b"`
 - `KEYWORD_THRESHOLD = 3`
 
 ### `chains.py` — Complete
+
 - `rewrite_chain` and `response_model` using `llama3.2:3b`
 
 ### `tools.py` — Complete
+
 - `docs[:5]` limit with numbered `[1]...[5]` format
 
 ### `connection.py` — Orphaned
+
 - Never imported. Excluded from git via `.gitignore`. Delete or document.
 
 ---
@@ -112,7 +122,7 @@ The following was confirmed from the running uvicorn process:
 ## Open Issues
 
 | # | Severity | Issue | Status |
-|---|----------|-------|--------|
+| --- | --- | --- | --- |
 | A | High | CORS `allow_origins=["*"]` — needs locking before production | Open |
 | B | Medium | Generic `except Exception` in chat endpoint (BUG #4) | Open |
 | C | Low | `connection.py` orphaned — never imported | Open |
@@ -125,7 +135,7 @@ The following was confirmed from the running uvicorn process:
 ## What Is Missing
 
 | Gap | Priority | Notes |
-|-----|----------|-------|
+| --- | --- | --- |
 | Frontend UI | Critical | No user-facing interface exists |
 | ~~Docker / Containerization~~ | ~~Critical~~ | ✅ Done — `Dockerfile` + `docker-compose.yml` + `.dockerignore` |
 | ~~Unit and Integration Tests~~ | ~~High~~ | ✅ Done — 60%+ coverage achieved |

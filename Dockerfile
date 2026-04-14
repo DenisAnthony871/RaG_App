@@ -1,9 +1,8 @@
-FROM python:3.12-slim@sha256:804ddf3251a60bbf9c92e73b7566c40428d54d0e79d3428194edf40da6521286
+FROM python:3.12-slim@sha256:804ddf3251a60bbf9c92e73b7566c40428d54d0e79d3428194edf40da6521286 AS base
 
 WORKDIR /app
 
-# Install system dependencies and upgrade packages to patch known CVEs
-# (CVE-2026-28389, CVE-2026-28390, CVE-2026-28391 — openssl < 3.5.5-1~deb13u2)
+# Install system dependencies and apply all available security patches
 RUN apt-get update \
     && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends \
@@ -22,6 +21,14 @@ RUN uv pip install -r requirements.txt --system
 # Copy application source
 COPY *.py .
 COPY .env.example .
+
+# Create a non-root user for runtime security
+RUN groupadd --system appuser \
+    && useradd --system --gid appuser --no-create-home appuser \
+    && mkdir -p /app/data \
+    && chown -R appuser:appuser /app
+
+USER appuser
 
 # Expose API port
 EXPOSE 8080

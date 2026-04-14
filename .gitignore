@@ -32,6 +32,7 @@ JioChatbotDataset_Text/
 
 # Database
 chat_history.db
+data/
 *.db
 *.sqlite3
 

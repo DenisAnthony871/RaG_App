@@ -18,7 +18,7 @@
 ## Endpoints
 
 | Method | Path | Auth | Description |
-|--------|------|------|-------------|
+| --- | --- | --- | --- |
 | GET | `/health` | None | Server liveness check |
 | GET | `/stats` | Required | Vector store document count |
 | POST | `/chat` | Required | Send a query, get an answer |
@@ -36,6 +36,7 @@ curl http://127.0.0.1:8080/health
 ```
 
 **Expected:**
+
 ```json
 {"status": "healthy"}
 ```
@@ -52,6 +53,7 @@ curl http://127.0.0.1:8080/stats \
 ```
 
 **Expected:**
+
 ```json
 {
   "total_vectors": 842,
@@ -74,6 +76,7 @@ curl -X POST http://127.0.0.1:8080/chat \
 ```
 
 **Expected:**
+
 ```json
 {
   "request_id": "a1b2c3d4",
@@ -142,6 +145,7 @@ curl http://127.0.0.1:8080/conversations/550e8400-e29b-41d4-a716-446655440000 \
 ```
 
 **Expected:**
+
 ```json
 {
   "conversation": {
@@ -167,6 +171,7 @@ curl -X DELETE http://127.0.0.1:8080/conversations/550e8400-e29b-41d4-a716-44665
 ```
 
 **Expected:**
+
 ```json
 {"status": "deleted", "conversation_id": "550e8400-e29b-41d4-a716-446655440000"}
 ```
@@ -176,7 +181,7 @@ curl -X DELETE http://127.0.0.1:8080/conversations/550e8400-e29b-41d4-a716-44665
 ## Error Responses
 
 | HTTP Code | Cause | Fix |
-|-----------|-------|-----|
+| --- | --- | --- |
 | `401 Unauthorized` | Missing or wrong `X-API-Key` | Check your key in `.env` |
 | `404 Not Found` | Unknown `conversation_id` | Use a valid ID or omit it to start fresh |
 | `422 Unprocessable Entity` | Query too short (<3 chars) or too long (>500) | Adjust query length |
@@ -278,7 +283,7 @@ Use the **Authorize** button (top-right of the Swagger page) to enter your `X-AP
 ## Performance Reference
 
 | Condition | Expected Response Time |
-|-----------|----------------------|
+| --- | --- |
 | ChromaDB cold start | 5–10 seconds (first request) |
 | Warm request on CPU | 3–8 seconds |
 | Warm request on GPU | 0.5–2 seconds |
