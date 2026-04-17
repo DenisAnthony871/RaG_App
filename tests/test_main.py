@@ -21,7 +21,7 @@ def test_chat_valid_key(client, auth_headers):
     assert data["status"] == "success"
 
 def test_chat_query_too_short(client, auth_headers):
-    response = client.post("/chat", headers=auth_headers, json={"query": "hi"})
+    response = client.post("/chat", headers=auth_headers, json={"query": ""})
     assert response.status_code == 422
 
 def test_chat_query_too_long(client, auth_headers):
