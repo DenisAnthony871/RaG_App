@@ -113,10 +113,7 @@ pip-delete-this-directory.txt
 $RECYCLE.BIN/
 
 # Node/Web additional
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
+
 .npm/
 
 # Frameworks / Build caches
