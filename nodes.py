@@ -76,7 +76,7 @@ GREETINGS = {
     "morning", "gm", "thanks", "thank you", "thankyou", "ty",
     "ok", "okay", "bye", "goodbye", "see you",
     "wow", "cool", "nice", "great", "awesome",
-    "help", "help me", "yo", "sup",
+    "yo", "sup",
 }
 
 def validate_input(state: JioState):
