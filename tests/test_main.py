@@ -104,3 +104,166 @@ def test_delete_conversation_wrong_owner(client, mock_db):
     mock_db["delete_conversation"].return_value = False
     response = client.delete("/conversations/some-id", headers={"X-API-Key": "test-api-key-12345"})
     assert response.status_code == 404
+
+def test_verify_api_key_not_set(client, monkeypatch):
+    monkeypatch.setattr("main.API_KEY", None)
+    response = client.post("/chat", headers={"X-API-Key": "any-key"}, json={"query": "test"})
+    assert response.status_code == 500
+
+def test_chat_query_blank(client, auth_headers):
+    response = client.post("/chat", headers=auth_headers, json={"query": "   "})
+    assert response.status_code == 422
+
+def test_request_size_limit_content_length(client, auth_headers):
+    response = client.post("/chat", headers={**auth_headers, "Content-Length": "10000000"}, json={"query": "test"})
+    assert response.status_code == 413
+
+def test_request_size_limit_body_stream(client, auth_headers):
+    large_payload = b"a" * 10000000
+    response = client.post("/chat", headers=auth_headers, content=large_payload)
+    assert response.status_code == 413
+
+def test_stats_exception(client, auth_headers):
+    from unittest.mock import patch
+    with patch("main.vectorstore.get", side_effect=Exception("DB Error")):
+        response = client.get("/stats", headers=auth_headers)
+        assert response.status_code == 500
+
+def test_chat_graph_empty_messages(client, auth_headers, mock_graph):
+    mock_graph.invoke.return_value = {"messages": []}
+    response = client.post("/chat", headers=auth_headers, json={"query": "test"})
+    assert response.status_code == 500
+
+def test_chat_graph_index_error(client, auth_headers, mock_graph):
+    mock_graph.invoke.side_effect = IndexError("Graph state error")
+    response = client.post("/chat", headers=auth_headers, json={"query": "test"})
+    assert response.status_code == 500
+
+def test_chat_bad_request_error(client, auth_headers, mock_graph):
+    from main import BadRequestError
+    mock_graph.invoke.side_effect = BadRequestError("Bad request")
+    response = client.post("/chat", headers=auth_headers, json={"query": "test"})
+    assert response.status_code == 400
+
+def test_chat_value_error(client, auth_headers, mock_graph):
+    mock_graph.invoke.side_effect = ValueError("Internal value error")
+    response = client.post("/chat", headers=auth_headers, json={"query": "test"})
+    assert response.status_code == 500
+
+def test_chat_timeout_error(client, auth_headers, mock_graph):
+    mock_graph.invoke.side_effect = TimeoutError("Timeout")
+    response = client.post("/chat", headers=auth_headers, json={"query": "test"})
+    assert response.status_code == 504
+
+def test_chat_unexpected_error(client, auth_headers, mock_graph):
+    mock_graph.invoke.side_effect = Exception("Unexpected")
+    response = client.post("/chat", headers=auth_headers, json={"query": "test"})
+    assert response.status_code == 500
+
+def test_chat_save_messages_batch_error(client, auth_headers, mock_db):
+    mock_db["save_messages_batch"].side_effect = Exception("DB save error")
+    response = client.post("/chat", headers=auth_headers, json={"query": "test"})
+    # It logs the error but still returns 200 with the answer
+    assert response.status_code == 200
+
+def test_chat_log_query_error(client, auth_headers, mock_db):
+    mock_db["log_query"].side_effect = Exception("Log error")
+    response = client.post("/chat", headers=auth_headers, json={"query": "test"})
+    # It logs the error but still returns 200 with the answer
+    assert response.status_code == 200
+
+def test_global_exception_handler(auth_headers):
+    from unittest.mock import patch
+    from fastapi.testclient import TestClient
+    from main import app
+    
+    # Create client with raise_server_exceptions=False to catch the 500 response
+    test_client = TestClient(app, raise_server_exceptions=False)
+    
+    with patch("main.get_conversation_summary", side_effect=Exception("Unhandled")):
+        response = test_client.get("/conversations/test-id", headers=auth_headers)
+        assert response.status_code == 500
+
+import pytest
+
+def test_request_size_limit_normal_body(client, auth_headers):
+    response = client.post("/chat", headers=auth_headers, json={"query": "normal size"})
+    assert response.status_code == 200
+
+def test_chat_httpx_read_timeout(client, auth_headers, mock_graph):
+    from httpx import ReadTimeout
+    mock_graph.invoke.side_effect = ReadTimeout("Timeout")
+    response = client.post("/chat", headers=auth_headers, json={"query": "test"})
+    assert response.status_code == 504
+
+def test_chat_concurrent_timeout(client, auth_headers, mock_graph):
+    from concurrent.futures import TimeoutError as FuturesTimeoutError
+    mock_graph.invoke.side_effect = FuturesTimeoutError("Timeout")
+    response = client.post("/chat", headers=auth_headers, json={"query": "test"})
+    assert response.status_code == 504
+
+def test_chat_runtime_error(client, auth_headers, mock_graph):
+    mock_graph.invoke.side_effect = RuntimeError("Runtime error")
+    response = client.post("/chat", headers=auth_headers, json={"query": "test"})
+    assert response.status_code == 500
+
+@pytest.mark.asyncio
+async def test_global_exception_handler_direct():
+    from main import global_exception_handler
+    from fastapi import Request
+    from unittest.mock import MagicMock
+    mock_request = MagicMock(spec=Request)
+    response = await global_exception_handler(mock_request, Exception("Arbitrary Exception"))
+    assert response.status_code == 500
+    import json
+    assert json.loads(response.body) == {"detail": "Internal server error"}
+
+@pytest.mark.asyncio
+async def test_rate_limit_handler():
+    from main import rate_limit_handler
+    from slowapi.errors import RateLimitExceeded
+    from fastapi import Request
+    from unittest.mock import MagicMock
+    
+    mock_request = MagicMock(spec=Request)
+    # Ensure request.client is not None
+    mock_request.client = MagicMock()
+    mock_request.client.host = "127.0.0.1"
+    
+    mock_limit = MagicMock()
+    mock_limit.error_message = None
+    response = await rate_limit_handler(mock_request, RateLimitExceeded(mock_limit))
+    assert response.status_code == 429
+    import json
+    assert "Too many requests" in json.loads(response.body)["detail"]
+
+@pytest.mark.asyncio
+async def test_rate_limit_handler_client_none():
+    from main import rate_limit_handler
+    from slowapi.errors import RateLimitExceeded
+    from fastapi import Request
+    from unittest.mock import MagicMock
+    
+    mock_request = MagicMock(spec=Request)
+    # Simulate internal dispatch where request.client is None
+    mock_request.client = None
+    
+    mock_limit = MagicMock()
+    mock_limit.error_message = None
+    response = await rate_limit_handler(mock_request, RateLimitExceeded(mock_limit))
+    assert response.status_code == 429
+
+def test_chat_persistence_and_logging_asserted(client, auth_headers, mock_db):
+    response = client.post("/chat", headers=auth_headers, json={"query": "test persistence"})
+    assert response.status_code == 200
+    mock_db["save_messages_batch"].assert_called_once()
+    mock_db["log_query"].assert_called_once()
+    
+    # Verify save_messages_batch was called with the right arguments
+    args, kwargs = mock_db["save_messages_batch"].call_args
+    assert len(args) >= 2
+    assert isinstance(args[1], list)
+    assert args[1][0][0] == "human"
+    assert args[1][0][1] == "test persistence"
+    assert args[1][1][0] == "ai"
+

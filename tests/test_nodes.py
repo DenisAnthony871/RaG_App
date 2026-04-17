@@ -154,3 +154,122 @@ def test_hallucination_router():
     state = {"messages": [EmptyToolMsg(), AIMessage(content="answer")], "confidence": 0.3}
     assert hallucination_router(state) == "end"
 
+def test_generate_answer_normal():
+    from unittest.mock import patch, MagicMock
+    from nodes import generate_answer
+    class ToolMsg: type = "tool"; content = "context"
+    state = {"messages": [HumanMessage(content="Q"), ToolMsg()]}
+    with patch('nodes.response_model') as mock_model:
+        mock_response = MagicMock(); mock_response.content = "Normal answer."
+        mock_model.invoke.return_value = mock_response
+        result = generate_answer(state)
+        assert result["messages"][0].content == "Normal answer."
+
+def test_generate_answer_json_guard():
+    from unittest.mock import patch, MagicMock
+    from nodes import generate_answer
+    state = {"messages": [HumanMessage(content="Q")]}
+    with patch('nodes.response_model') as mock_model:
+        mock_response = MagicMock(); mock_response.content = '{"key": "value"}'
+        mock_model.invoke.return_value = mock_response
+        result = generate_answer(state)
+        assert "don't have enough information" in result["messages"][0].content
+
+def test_generate_answer_context_truncation():
+    from unittest.mock import patch, MagicMock
+    from nodes import generate_answer
+    from config import MAX_CONTEXT_CHARS
+    class ToolMsg: type = "tool"; content = "a" * (MAX_CONTEXT_CHARS + 100)
+    state = {"messages": [HumanMessage(content="Q"), ToolMsg()]}
+    with patch('nodes.response_model') as mock_model:
+        mock_response = MagicMock(); mock_response.content = "Answer"
+        mock_model.invoke.return_value = mock_response
+        generate_answer(state)
+        call_args = mock_model.invoke.call_args[0][0]
+        assert "...[truncated]" in call_args
+
+def test_generate_answer_no_tool_message():
+    from unittest.mock import patch, MagicMock
+    from nodes import generate_answer
+    state = {"messages": [HumanMessage(content="Q")]}
+    with patch('nodes.response_model') as mock_model:
+        mock_response = MagicMock(); mock_response.content = "Answer"
+        mock_model.invoke.return_value = mock_response
+        generate_answer(state)
+        call_args = mock_model.invoke.call_args[0][0]
+        assert "No documents retrieved." in call_args
+
+def test_generate_answer_conversation_history():
+    from unittest.mock import patch, MagicMock
+    from nodes import generate_answer
+    state = {
+        "messages": [
+            HumanMessage(content="Hello"),
+            AIMessage(content="Hi there"),
+            HumanMessage(content="Question")
+        ]
+    }
+    with patch('nodes.response_model') as mock_model:
+        mock_response = MagicMock(); mock_response.content = "Answer"
+        mock_model.invoke.return_value = mock_response
+        generate_answer(state)
+        call_args = mock_model.invoke.call_args[0][0]
+        assert "CONVERSATION HISTORY" in call_args
+        assert "Customer: Hello" in call_args
+        assert "Agent: Hi there" in call_args
+
+def test_check_hallucination_medium_branch():
+    class ToolMsg: type = "tool"; content = "a b c d e f g h"
+    state = {
+        "messages": [ToolMsg(), AIMessage(content="a b c d e f g h")],
+        "rewrite_count": 1
+    }
+    assert check_hallucination(state) == {"confidence": 0.6}
+
+def test_check_hallucination_high_overlap_with_rewrites():
+    class ToolMsg: type = "tool"; content = "a b c d e f g h i j k l m n o p q"
+    state = {
+        "messages": [ToolMsg(), AIMessage(content="a b c d e f g h i j k l m n o p q")],
+        "rewrite_count": 1
+    }
+    assert check_hallucination(state) == {"confidence": 0.6}
+
+def test_format_answer_normal():
+    from nodes import format_answer
+    class ToolMsg: type = "tool"; content = "context"
+    state = {"messages": [ToolMsg(), AIMessage(content="Normal answer")]}
+    result = format_answer(state)
+    assert "---\n**Sources:** Retrieved from Jio Knowledge Base" in result["messages"][0].content
+    assert "✓ Information verified from retrieved documents" in result["messages"][0].content
+
+def test_format_answer_refusal():
+    from nodes import format_answer
+    state = {"messages": [AIMessage(content="I'm sorry, I don't know.")]}
+    result = format_answer(state)
+    assert "**Sources:**" not in result["messages"][0].content
+
+def test_format_answer_no_results():
+    from nodes import format_answer
+    class ToolMsg: type = "tool"; content = "No results found"
+    state = {"messages": [ToolMsg(), AIMessage(content="Normal answer")]}
+    result = format_answer(state)
+    assert "---\n**Sources:** Retrieved from Jio Knowledge Base" in result["messages"][0].content
+    assert "✓ Information verified from retrieved documents" not in result["messages"][0].content
+
+def test_after_validate_greeting():
+    from nodes import validate_input, after_validate
+    state = {"messages": [HumanMessage(content="hi")]}
+    res = validate_input(state)
+    assert after_validate(res) == "end"
+
+def test_after_validate_question_prefix():
+    from nodes import validate_input, after_validate
+    state = {"messages": [HumanMessage(content="how 123")]}
+    res = validate_input(state)
+    assert after_validate(res) == "continue"
+
+def test_is_fallback_expanded():
+    from nodes import is_fallback
+    assert is_fallback({"messages": [AIMessage(content="I'm sorry")]}) == "end"
+    assert is_fallback({"messages": [HumanMessage(content="rewrite")]}) == "continue"
+
