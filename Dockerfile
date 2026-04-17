@@ -1,4 +1,7 @@
 ARG PLATFORM=linux/amd64
+# We intentionally use the unpinned tag (python:3.12-slim) instead of a sha256 digest.
+# This enables deterministic multi-arch builds using the --platform arg.
+# We rely on `apt-get upgrade` below and periodic CI rebuilds for security.
 FROM --platform=${PLATFORM} python:3.12-slim AS base
 
 WORKDIR /app
