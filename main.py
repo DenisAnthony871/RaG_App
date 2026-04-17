@@ -161,7 +161,7 @@ class BadRequestError(Exception):
     pass
 
 class ChatRequest(BaseModel):
-    query: str = Field(..., min_length=3, max_length=500)
+    query: str = Field(..., min_length=1, max_length=500)
     conversation_id: Optional[str] = None
 
     @field_validator("query")

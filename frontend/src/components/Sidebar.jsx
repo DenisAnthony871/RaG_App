@@ -3,8 +3,8 @@ export default function Sidebar({ conversations, activeConvId, onSelect, onNew, 
     <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
       <div className="sidebar-header">
         <div className="sidebar-brand">
-          <div className="sidebar-brand-icon">J</div>
-          <span className="sidebar-brand-text">Jio RAG Agent</span>
+          <div className="sidebar-brand-icon">Jio</div>
+          <span className="sidebar-brand-text">Support Agent</span>
         </div>
         <button id="new-conversation-btn" className="sidebar-new-btn" onClick={onNew}>
           <span>＋</span> New Conversation
@@ -14,7 +14,7 @@ export default function Sidebar({ conversations, activeConvId, onSelect, onNew, 
       <div className="sidebar-list">
         {!Array.isArray(conversations) || conversations.length === 0 ? (
           <div className="sidebar-empty">
-            No conversations yet.<br />Start one above!
+            No conversations yet.<br />Start a new one above!
           </div>
         ) : (
           conversations.map((conv) => (
@@ -32,9 +32,9 @@ export default function Sidebar({ conversations, activeConvId, onSelect, onNew, 
                 }
               }}
             >
-              <span className="sidebar-item-icon">💬</span>
+              <span className="sidebar-item-icon">○</span>
               <span className="sidebar-item-label" title={conv.label || ''}>
-                {conv.label ? (conv.label.length > 30 ? conv.label.slice(0, 30) + '…' : conv.label) : 'Untitled'}
+                {conv.label ? (conv.label.length > 28 ? conv.label.slice(0, 28) + '…' : conv.label) : 'Untitled'}
               </span>
               <button
                 className="sidebar-item-delete"
