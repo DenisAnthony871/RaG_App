@@ -28,6 +28,7 @@ def mock_db():
     with patch("main.create_conversation", return_value=str(uuid.uuid4())) as cc, \
          patch("main.load_history", return_value=[]) as lh, \
          patch("main.save_message") as sm, \
+         patch("main.save_messages_batch") as smb, \
          patch("main.log_query") as lq, \
          patch("main.delete_conversation", return_value=True) as dc, \
          patch("main.get_conversation_summary", return_value={
@@ -40,6 +41,7 @@ def mock_db():
             "create_conversation": cc,
             "load_history": lh,
             "save_message": sm,
+            "save_messages_batch": smb,
             "log_query": lq,
             "delete_conversation": dc,
             "get_conversation_summary": gcs
