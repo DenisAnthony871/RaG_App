@@ -312,6 +312,9 @@
   flex: 1;
   overflow-y: auto;
   padding: 8px 12px;
+  /* Firefox scrollbar support */
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
 
 .sidebar-list::-webkit-scrollbar { width: 4px; }
