@@ -16,21 +16,25 @@ export default function StatsPanel({ apiKey, isOpen }) {
   const fetchStats = useCallback(async () => {
     setLoading(true);
     setError(null);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
     try {
-      const data = await api.stats(apiKey);
+      const data = await api.stats(apiKey, controller.signal);
       if (isMounted.current) setStats(data);
     } catch (err) {
       if (isMounted.current) {
-        console.error('Failed to load stats:', err);
-        setError('Failed to load stats');
+        const msg = err.name === 'AbortError' 
+          ? 'Backend unreachable' 
+          : 'Failed to load stats';
+        setError(msg);
         setStats(null);
       }
     } finally {
+      clearTimeout(timeout);
       if (isMounted.current) setLoading(false);
     }
   }, [apiKey]);
 
-  // Fetch on mount
   useEffect(() => {
     fetchStats();
   }, [fetchStats]);
@@ -38,7 +42,7 @@ export default function StatsPanel({ apiKey, isOpen }) {
   return (
     <aside className={`stats-panel ${isOpen ? 'open' : ''}`}>
       <div className="stats-header">
-        <h2>📊 System Stats</h2>
+        <h2>System Stats</h2>
         <button
           id="stats-refresh-btn"
           className={`stats-refresh-btn${loading ? ' spinning' : ''}`}
@@ -59,7 +63,16 @@ export default function StatsPanel({ apiKey, isOpen }) {
         )}
 
         {error && !loading && (
-          <div className="stats-error">{error}</div>
+          <div className="stats-error">
+            <p style={{ marginBottom: '12px' }}>{error}</p>
+            <button 
+              className="stats-refresh-btn" 
+              onClick={fetchStats}
+              title="Retry"
+            >
+              ↻
+            </button>
+          </div>
         )}
 
         {stats && !loading && (
@@ -87,15 +100,13 @@ export default function StatsPanel({ apiKey, isOpen }) {
           </>
         )}
 
-        {!loading && (
-          <div className="stats-card">
-            <div className="stats-card-label">Status</div>
-            <div className="stats-card-value small">
-              <span className={`status-dot ${error ? 'offline' : 'online'}`} style={error ? { background: '#ef4444' } : {}}></span>
-              {error ? 'Disconnected' : 'Connected'}
-            </div>
+        <div className="stats-card">
+          <div className="stats-card-label">Status</div>
+          <div className="stats-card-value small">
+            <span className={`status-dot ${error ? 'offline' : (loading ? '' : 'online')}`}></span>
+            {loading ? 'Checking…' : (error ? 'Disconnected' : 'Connected')}
           </div>
-        )}
+        </div>
       </div>
     </aside>
   );

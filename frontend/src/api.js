@@ -7,9 +7,10 @@ export const api = {
       return r.json();
     }),
 
-  stats: (key) =>
+  stats: (key, signal) =>
     fetch(`${BASE}/stats`, {
       headers: { "X-API-Key": key },
+      ...(signal && { signal }),
     }).then(r => {
       if (!r.ok) throw new Error(r.status);
       return r.json();

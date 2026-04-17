@@ -64,7 +64,7 @@ export default function ChatWindow({
       if (isAuthError(err)) {
         setError('Invalid API key');
       } else {
-        setError('Something went wrong. Try again.');
+        setError('Something went wrong. Please try again.');
       }
     } finally {
       setLoading(false);
@@ -84,40 +84,42 @@ export default function ChatWindow({
     <div className="chat-panel">
       <div className="chat-header">
         <button 
-          className="mobile-toggle-btn sidebar-toggle"
+          className="mobile-toggle-btn"
           aria-label="Toggle Sidebar"
           aria-expanded={sidebarOpen}
           onClick={onToggleSidebar}
         >
           <span aria-hidden="true">☰</span>
         </button>
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <div className="chat-header-title">
-            {conversationId ? 'Active Conversation' : 'New Conversation'}
+            {conversationId ? 'Active Conversation' : 'Jio Support Chat'}
           </div>
           <div className="chat-header-subtitle">
             {conversationId
-              ? `ID: ${conversationId.slice(0, 8)}…`
-              : 'Send a message to get started'}
+              ? `Session: ${conversationId.slice(0, 8)}…`
+              : 'Ask anything about Jio services'}
           </div>
         </div>
         <button 
-          className="mobile-toggle-btn stats-toggle"
+          className="mobile-toggle-btn"
           aria-label="Toggle Stats"
           aria-expanded={statsOpen}
           onClick={onToggleStats}
         >
-          <span aria-hidden="true">📊</span>
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <line x1="4" y1="14" x2="4" y2="8" /><line x1="9" y1="14" x2="9" y2="4" /><line x1="14" y1="14" x2="14" y2="10" />
+          </svg>
         </button>
       </div>
 
       <div className="chat-messages">
         {allMessages.length === 0 ? (
           <div className="chat-empty">
-            <div className="chat-empty-icon">💬</div>
-            <div className="chat-empty-text">Start a Conversation</div>
+            <div className="chat-empty-icon" style={{ fontSize: '48px', opacity: 0.25, color: 'var(--jio-navy)' }}>?</div>
+            <div className="chat-empty-text">Welcome to Jio Support</div>
             <div className="chat-empty-hint">
-              Ask anything about Jio services — Fiber, SIM, plans, and more.
+              Ask about Jio Fiber plans, SIM activation, recharge options, network issues, and more.
             </div>
           </div>
         ) : (

@@ -69,10 +69,25 @@ def correct_spelling(text: str) -> str:
 # Short terms that are valid Jio queries despite being under the length threshold
 SHORT_ALLOWLIST = {"5g", "jio", "wifi", "jiotv", "sim", "4g", "volte"}
 
+# Casual greetings — respond warmly instead of rejecting
+GREETINGS = {
+    "hi", "hello", "hey", "hii", "hiii", "helo", "hola",
+    "good morning", "good afternoon", "good evening", "good night",
+    "morning", "gm", "thanks", "thank you", "thankyou", "ty",
+    "ok", "okay", "bye", "goodbye", "see you",
+    "wow", "cool", "nice", "great", "awesome",
+    "help", "help me", "yo", "sup",
+}
+
 def validate_input(state: JioState):
     messages = state["messages"]
     user_msg = messages[-1].content if messages else ""
     cleaned = user_msg.strip()
+
+    # Greeting check — respond warmly before applying length filter
+    cleaned_for_greeting = cleaned.lower().strip('!?.,:;')
+    if cleaned_for_greeting in GREETINGS:
+        return {"messages": [AIMessage(content="Hello! Welcome to Jio Support. I can help you with Jio Fiber, SIM, recharge plans, network issues, and more. What would you like to know?")]}
 
     # Length check — allow short Jio terms and queries starting with a question word + content
     is_question_with_content = cleaned.lower().startswith(("what ", "how ", "why ", "when ", "where ", "who "))
@@ -185,7 +200,7 @@ def rewrite_question(state: JioState):
 
     if rewrite_count >= MAX_REWRITES:
         logger.warning("Max rewrites reached, returning fallback answer")
-        return {"messages": [AIMessage(content="I'm sorry, I couldn't find relevant information. Please try rephrasing your question or reach out to Jio support directly:\n\n📞 Toll-Free: 1800-889-9999\n📱 MyJio App: Available on Play Store and App Store\n🌐 Self Care: jio.com/selfcare")]}
+        return {"messages": [AIMessage(content="I'm sorry, I couldn't find relevant information. Please try rephrasing your question or reach out to Jio support directly:\n\nToll-Free: 1800-889-9999\nMyJio App: Available on Play Store and App Store\nSelf Care: jio.com/selfcare")]}
 
     question = next(
         (msg.content for msg in reversed(messages) if msg.type == "human"), ""
@@ -240,11 +255,28 @@ def generate_answer(state: JioState):
         tool_message = tool_message[:MAX_CONTEXT_CHARS] + "...[truncated]"
         logger.info(f"Context truncated to {MAX_CONTEXT_CHARS} chars")
 
+    # Build conversation history for context (human & ai messages only, skip tool messages)
+    history_lines = []
+    for msg in messages:
+        if msg.type == "human":
+            history_lines.append(f"Customer: {msg.content}")
+        elif msg.type == "ai" and msg.content:  # skip empty tool-call AI messages
+            history_lines.append(f"Agent: {msg.content}")
+    # Keep only last few turns to avoid token bloat, exclude current question
+    conversation_history = "\n".join(history_lines[:-1][-6:])  # last 3 turns (6 lines)
+
+    history_block = ""
+    if conversation_history.strip():
+        history_block = f"""\nCONVERSATION HISTORY (for context — use to maintain continuity):
+{conversation_history}
+"""
+
     plain_prompt = f"""You are a Jio customer support assistant.
 Use the context below to answer the question.
+If the conversation history is relevant, use it to provide a more helpful and contextual answer.
 Write your answer in plain English sentences only.
 Do not write JSON, do not call functions, do not use tools.
-
+{history_block}
 CONTEXT:
 {tool_message}
 
