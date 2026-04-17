@@ -115,11 +115,9 @@ def test_chat_query_blank(client, auth_headers):
     assert response.status_code == 422
 
 def test_request_size_limit_content_length(client, auth_headers):
-    response = client.post("/chat", headers={**auth_headers, "Content-Length": "10000000"}, json={"query": "test"})
-    assert response.status_code == 413
-
-def test_request_size_limit_body_stream(client, auth_headers):
-    large_payload = b"a" * 10000000
+    # Exercise the RequestSizeLimitMiddleware content-length branch by
+    # sending a real large payload so httpx sets the Content-Length correctly.
+    large_payload = b"a" * 3000000
     response = client.post("/chat", headers=auth_headers, content=large_payload)
     assert response.status_code == 413
 

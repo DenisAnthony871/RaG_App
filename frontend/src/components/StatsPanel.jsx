@@ -7,19 +7,23 @@ export default function StatsPanel({ apiKey, isOpen }) {
   const [error, setError] = useState(null);
   const isMounted = useRef(true);
 
+  const controllerRef = useRef(null);
+
   useEffect(() => {
     return () => {
       isMounted.current = false;
+      if (controllerRef.current) controllerRef.current.abort();
     };
   }, []);
 
   const fetchStats = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
+    if (controllerRef.current) controllerRef.current.abort();
+    controllerRef.current = new AbortController();
+    const timeout = setTimeout(() => controllerRef.current.abort(), 5000);
     try {
-      const data = await api.stats(apiKey, controller.signal);
+      const data = await api.stats(apiKey, controllerRef.current.signal);
       if (isMounted.current) setStats(data);
     } catch (err) {
       if (isMounted.current) {
