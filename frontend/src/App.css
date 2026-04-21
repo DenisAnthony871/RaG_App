@@ -64,10 +64,7 @@
 }
 
 /* ===== Reusable Scrollbar ===== */
-.custom-scrollbar {
-  scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
-}
+/* Webkit fallback — works in all Chrome/Edge/Safari versions */
 .custom-scrollbar::-webkit-scrollbar { width: 5px; }
 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
 .custom-scrollbar::-webkit-scrollbar-thumb {
@@ -76,6 +73,13 @@
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
+}
+/* Modern standard properties — progressive enhancement for Chrome ≥121 / Firefox */
+@supports (scrollbar-width: thin) {
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
 }
 
 /* ===== Layout ===== */
