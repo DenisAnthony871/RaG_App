@@ -19,9 +19,13 @@ export default function StatsPanel({ apiKey, isOpen }) {
   const fetchStats = useCallback(async () => {
     setLoading(true);
     setError(null);
+<<<<<<< HEAD
     if (controllerRef.current) controllerRef.current.abort();
     const controller = new AbortController();
     controllerRef.current = controller;
+=======
+    const controller = new AbortController();
+>>>>>>> b40c08e4ffd3a63e1801b68deb8333adb42f56cf
     const timeout = setTimeout(() => controller.abort(), 5000);
     try {
       const data = await api.stats(apiKey, controller.signal);
