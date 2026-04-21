@@ -11,7 +11,7 @@ export default function Sidebar({ conversations, activeConvId, onSelect, onNew, 
         </button>
       </div>
 
-      <div className="sidebar-list">
+      <div className="sidebar-list custom-scrollbar">
         {!Array.isArray(conversations) || conversations.length === 0 ? (
           <div className="sidebar-empty">
             No conversations yet.<br />Start a new one above!

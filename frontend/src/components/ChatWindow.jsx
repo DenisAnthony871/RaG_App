@@ -113,7 +113,7 @@ export default function ChatWindow({
         </button>
       </div>
 
-      <div className="chat-messages">
+      <div className="chat-messages custom-scrollbar">
         {allMessages.length === 0 ? (
           <div className="chat-empty">
             <div className="chat-empty-icon" style={{ fontSize: '48px', opacity: 0.25, color: 'var(--jio-navy)' }}>?</div>
