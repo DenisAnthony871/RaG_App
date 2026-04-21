@@ -1,21 +1,21 @@
 {
-    "python.testing.pytestArgs": [
-        "."
-    ],
-    "python.testing.pytestEnabled": true,
-    "python.testing.unittestEnabled": false,
-    "python.terminal.useEnvFile": true,
-    "claudeCodeChat.permissions.yoloMode": false,
-    "redhat.telemetry.enabled": true,
-    "rhda.excludeFolders": [
-        ".venv",
-        "node_modules",
-        "__pycache__",
-        ".pytest_cache",
-        "*.egg-info",
-        "dist",
-        "build",
-        "chroma_db_*"
-    ],
-    "python.analysis.autoImportCompletions": true
+  "python.testing.pytestArgs": ["."],
+  "pyrefly.diagnostics.ignoreFiles": ["**/__pyrefly_virtual__/**"],
+
+  "python.testing.pytestEnabled": true,
+  "python.testing.unittestEnabled": false,
+  "python.terminal.useEnvFile": true,
+  "claudeCodeChat.permissions.yoloMode": false,
+  "redhat.telemetry.enabled": true,
+  "rhda.excludeFolders": [
+    ".venv",
+    "node_modules",
+    "__pycache__",
+    ".pytest_cache",
+    "*.egg-info",
+    "dist",
+    "build",
+    "chroma_db_*"
+  ],
+  "python.analysis.autoImportCompletions": true
 }
