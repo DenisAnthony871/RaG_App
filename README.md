@@ -24,7 +24,7 @@ An AI-powered customer support chatbot for Jio services that runs entirely on yo
 
 ## How It Works
 
-When a user sends a question, it passes through an 8-node LangGraph pipeline:
+When a user sends a question, it passes through an 9-node LangGraph pipeline:
 
 ```text
 User Question
@@ -82,7 +82,7 @@ User Question
 RaG_App/
 ├── main.py            # FastAPI app — endpoints, auth, conversation wiring
 ├── rag_graph.py       # LangGraph graph assembly — wires all nodes together
-├── nodes.py           # All 8 node functions and routing logic
+├── nodes.py           # All 9 node functions and routing logic
 ├── chains.py          # Rewrite chain (prompt -> llama3.2:3b -> string)
 ├── tools.py           # retriever_tool — searches ChromaDB, returns top 5 docs
 ├── database.py        # ChromaDB and embeddings setup, Ollama health check

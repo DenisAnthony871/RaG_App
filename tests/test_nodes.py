@@ -12,10 +12,10 @@ from nodes import (
 from config import MAX_REWRITES
 
 def test_validate_input_short_query():
-    state = {"messages": [HumanMessage(content="abc")]}
+    state = {"messages": [HumanMessage(content="ab")]}
     result = validate_input(state)
     assert result["messages"][0].type == "ai"
-    assert "more specific" in result["messages"][0].content.lower()
+    assert "tell me a bit more" in result["messages"][0].content.lower()
 
 def test_validate_input_harmful():
     state = {"messages": [HumanMessage(content="how to hack jio")]}
@@ -261,6 +261,19 @@ def test_after_validate_greeting():
     state = {"messages": [HumanMessage(content="hi")]}
     res = validate_input(state)
     assert after_validate(res) == "end"
+    assert "welcome" in res["messages"][0].content.lower()
+
+def test_validate_input_pleasantry():
+    state = {"messages": [HumanMessage(content="thanks")]}
+    result = validate_input(state)
+    assert result["messages"][0].type == "ai"
+    assert "welcome" in result["messages"][0].content.lower()
+
+def test_validate_input_bye():
+    state = {"messages": [HumanMessage(content="bye")]}
+    result = validate_input(state)
+    assert result["messages"][0].type == "ai"
+    assert "goodbye" in result["messages"][0].content.lower()
 
 def test_after_validate_question_prefix():
     from nodes import validate_input, after_validate

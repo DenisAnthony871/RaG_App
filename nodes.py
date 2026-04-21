@@ -67,32 +67,61 @@ def correct_spelling(text: str) -> str:
 # ============= NODE 1: VALIDATE INPUT =============
 
 # Short terms that are valid Jio queries despite being under the length threshold
-SHORT_ALLOWLIST = {"5g", "jio", "wifi", "jiotv", "sim", "4g", "volte"}
+SHORT_ALLOWLIST = {"5g", "jio", "wifi", "jiotv", "sim", "4g", "volte", "esim", "ott", "myjio"}
 
 # Casual greetings — respond warmly instead of rejecting
 GREETINGS = {
-    "hi", "hello", "hey", "hii", "hiii", "helo", "hola",
+    "hi", "hello", "hey", "hii", "hiii", "helo", "hola", "namaste",
     "good morning", "good afternoon", "good evening", "good night",
-    "morning", "gm", "thanks", "thank you", "thankyou", "ty",
-    "ok", "okay", "bye", "goodbye", "see you",
-    "wow", "cool", "nice", "great", "awesome",
-    "yo", "sup",
+    "morning", "gm", "gn",
+    "yo", "sup", "heya", "howdy",
 }
+
+# Conversational closers & pleasantries — acknowledge gracefully
+# Note: yes/no handling should be done via conversational intent/context logic elsewhere.
+PLEASANTRIES = {
+    "thanks", "thank you", "thankyou", "ty", "thx",
+    "ok", "okay", "k", "got it", "understood",
+    "bye", "goodbye", "see you", "cya", "later",
+    "wow", "cool", "nice", "great", "awesome", "perfect",
+}
+
+PLEASANTRY_RESPONSES = {
+    "thanks": "You're welcome! Let me know if you need anything else about Jio services. 😊",
+    "thank you": "You're welcome! Let me know if you need anything else about Jio services. 😊",
+    "thankyou": "You're welcome! Let me know if you need anything else about Jio services. 😊",
+    "ty": "You're welcome! Let me know if you need anything else about Jio services. 😊",
+    "thx": "You're welcome! Let me know if you need anything else about Jio services. 😊",
+    "bye": "Goodbye! Feel free to come back if you have more questions about Jio. 👋",
+    "goodbye": "Goodbye! Feel free to come back if you have more questions about Jio. 👋",
+    "see you": "See you! I'm always here to help with Jio services. 👋",
+    "cya": "See you! I'm always here to help with Jio services. 👋",
+    "later": "Talk soon! I'm here whenever you need help with Jio. 👋",
+}
+
+GREETING_RESPONSE = "Hello! 👋 Welcome to Jio Support. I can help you with Jio Fiber, SIM, recharge plans, network issues, and more. What would you like to know?"
 
 def validate_input(state: JioState):
     messages = state["messages"]
     user_msg = messages[-1].content if messages else ""
     cleaned = user_msg.strip()
 
-    # Greeting check — respond warmly before applying length filter
-    cleaned_for_greeting = cleaned.lower().strip('!?.,:;')
-    if cleaned_for_greeting in GREETINGS:
-        return {"messages": [AIMessage(content="Hello! Welcome to Jio Support. I can help you with Jio Fiber, SIM, recharge plans, network issues, and more. What would you like to know?")]}
+    # Normalize for matching — strip trailing punctuation
+    normalized = cleaned.lower().strip('!?.,:; ')
 
-    # Length check — allow short Jio terms and queries starting with a question word + content
+    # Greeting check — respond warmly before applying any other filter
+    if normalized in GREETINGS:
+        return {"messages": [AIMessage(content=GREETING_RESPONSE)]}
+
+    # Pleasantry check — acknowledge gracefully
+    if normalized in PLEASANTRIES:
+        response = PLEASANTRY_RESPONSES.get(normalized, "Got it! Is there anything else I can help you with regarding Jio services?")
+        return {"messages": [AIMessage(content=response)]}
+
+    # Length check — only reject truly meaningless input (< 3 chars)
     is_question_with_content = cleaned.lower().startswith(("what ", "how ", "why ", "when ", "where ", "who "))
-    if len(cleaned) < 8 and cleaned.lower() not in SHORT_ALLOWLIST and not is_question_with_content:
-        return {"messages": [AIMessage(content="Please ask a more specific question about Jio services.")]}
+    if len(cleaned) < 3 and cleaned.lower() not in SHORT_ALLOWLIST and not is_question_with_content:
+        return {"messages": [AIMessage(content="Could you tell me a bit more? I'm here to help with any Jio-related questions.")]}
 
     # Harmful keyword check
     if any(keyword in cleaned.lower() for keyword in HARMFUL_KEYWORDS):
@@ -105,23 +134,23 @@ def validate_input(state: JioState):
 
     # Prompt injection check - Defense-in-Depth
     # 1. Robust Input Normalization
-    normalized = unicodedata.normalize("NFKC", cleaned)
+    sanitized_for_injection = unicodedata.normalize("NFKC", cleaned)
     # Remove basic homoglyphs/deceptive punctuation and collapse whitespace
-    normalized = re.sub(r"[^\w\s]", "", normalized.lower())
-    normalized = re.sub(r"\s+", " ", normalized)
+    sanitized_for_injection = re.sub(r"[^\w\s]", "", sanitized_for_injection.lower())
+    sanitized_for_injection = re.sub(r"\s+", " ", sanitized_for_injection)
 
     # 2. Regex-based Detection
     injection_pattern = re.compile(
         r"\b(ignore|disregard|forget)\b.*\b(previous|all|instructions|prompts)\b|\b(jailbreak|dan mode|act as|pretend you are)\b",
         re.IGNORECASE
     )
-    if injection_pattern.search(normalized):
+    if injection_pattern.search(sanitized_for_injection):
         logger.warning("[PROMPT_INJECTION_DETECTED] Regex pattern match")
         return {"messages": [AIMessage(content="I can't help with that. Please ask about Jio services instead.")]}
 
     # 3. Intent Classifier (Heuristic based on imperative verbs)
     imperative_verbs = {"ignore", "disregard", "forget", "bypass", "act", "pretend", "jailbreak"}
-    words = normalized.split()
+    words = sanitized_for_injection.split()
     verb_count = sum(1 for w in words if w in imperative_verbs)
     if verb_count >= 2 and len(words) <= 20: # Short bursts of heavy instructions
         logger.warning(f"[PROMPT_INJECTION_DETECTED] Heuristic triggered: {verb_count} imperative verbs")
