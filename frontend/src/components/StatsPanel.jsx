@@ -20,10 +20,11 @@ export default function StatsPanel({ apiKey, isOpen }) {
     setLoading(true);
     setError(null);
     if (controllerRef.current) controllerRef.current.abort();
-    controllerRef.current = new AbortController();
-    const timeout = setTimeout(() => controllerRef.current.abort(), 5000);
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    const timeout = setTimeout(() => controller.abort(), 5000);
     try {
-      const data = await api.stats(apiKey, controllerRef.current.signal);
+      const data = await api.stats(apiKey, controller.signal);
       if (isMounted.current) setStats(data);
     } catch (err) {
       if (isMounted.current) {
@@ -58,7 +59,7 @@ export default function StatsPanel({ apiKey, isOpen }) {
         </button>
       </div>
 
-      <div className="stats-body">
+      <div className="stats-body custom-scrollbar">
         {loading && (
           <div className="stats-loading">
             <div className="spinner"></div>
