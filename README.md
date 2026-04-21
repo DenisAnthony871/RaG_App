@@ -49,9 +49,11 @@ User Question
       |
 7. format_answer           — appends sources footer (skipped for refusal messages)
       |
-8. hallucination_router    — checks word overlap between answer and context (>= 5 words)
+8. check_hallucination     — computes confidence score via word overlap (writes to state)
       |
-      +-(low overlap)----> rewrite_question (retry)
+9. hallucination_router    — reads confidence; < 0.6 → rewrite_question, else END
+      |
+      +-(low confidence)----> rewrite_question (retry)
       |
       +-(grounded)-------------------------------------------------> END
 ```
